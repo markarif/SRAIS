@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SRAIS Tool</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+:root{
+  --navy:#1E3A5F;--blue:#2563EB;--green:#166534;--red:#991B1B;--amber:#92400E;
+  --bg:#EEF1F8;--white:#FFFFFF;--text:#111827;--muted:#6B7280;--border:#E5E7EB;
+  --light:#F9FAFB;--green-bg:#F0FDF4;--red-bg:#FEF2F2;--amber-bg:#FFFBEB;
+  --shadow-sm:0 1px 3px rgba(0,0,0,.06),0 2px 10px rgba(0,0,0,.04);
+  --shadow:0 4px 12px rgba(0,0,0,.08),0 12px 32px rgba(0,0,0,.05);
+  --radius:14px;--radius-sm:10px;--radius-xs:7px
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,Arial,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.6}
+.header{background:var(--navy);color:#fff;padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200;box-shadow:0 2px 12px rgba(0,0,0,.25)}
+.header h1{font-size:16px;font-weight:800;letter-spacing:.4px}
+.header span{font-size:12px;opacity:.6;margin-left:10px}
+.container{max-width:900px;margin:0 auto;padding:28px 20px}
+.card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:16px;box-shadow:var(--shadow-sm)}
+.sec-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:4px}
+.sec-title{font-size:19px;font-weight:700;color:var(--navy);margin-bottom:6px}
+.sec-desc{font-size:13px;color:var(--muted);margin-bottom:18px}
+.stepper{display:flex;gap:6px;margin-bottom:22px}
+.step-seg{flex:1;height:6px;background:var(--border);border-radius:3px;transition:background .3s}
+.step-seg.done{background:var(--green)}
+.step-seg.active{background:var(--blue)}
+.stage-nav{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:6px}
+.qgroup-title{font-size:14px;font-weight:700;color:var(--navy);margin:22px 0 10px;padding-top:14px;border-top:1px solid var(--border)}
+.qgroup-title:first-child{border-top:none;padding-top:0;margin-top:0}
+.principle{display:inline-block;font-size:10px;font-weight:700;color:var(--blue);background:#EFF6FF;padding:2px 8px;border-radius:10px;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px}
+.q-block{padding:12px 0;border-bottom:1px solid var(--light)}
+.q-text{font-size:13.5px;font-weight:600;margin-bottom:8px}
+.opt-list{display:flex;flex-wrap:wrap;gap:8px}
+.opt{display:flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--border);border-radius:var(--radius-xs);cursor:pointer;font-size:12.5px;background:var(--light)}
+.opt:hover{border-color:var(--blue)}
+.opt input{margin:0}
+.opt.checked{border-color:var(--blue);background:#EFF6FF;font-weight:600}
+textarea{width:100%;border:1px solid var(--border);border-radius:var(--radius-xs);padding:10px 12px;font-size:13px;font-family:inherit;resize:vertical;min-height:70px}
+label.field-label{display:block;font-size:12px;font-weight:700;color:var(--navy);margin:14px 0 6px}
+.btn-row{display:flex;justify-content:space-between;margin-top:22px;gap:10px}
+button{font-family:inherit;font-size:13.5px;font-weight:600;padding:10px 20px;border-radius:var(--radius-xs);border:1px solid var(--border);background:var(--white);cursor:pointer}
+button.primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+button.primary:hover{opacity:.9}
+button:disabled{opacity:.4;cursor:not-allowed}
+.summary-box{display:flex;gap:14px;margin-top:18px;flex-wrap:wrap}
+.summary-tile{flex:1;min-width:180px;background:var(--light);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px}
+.summary-tile .label{font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.5px}
+.summary-tile .value{font-size:24px;font-weight:800;color:var(--navy);margin-top:4px}
+.summary-tile .sub{font-size:11.5px;color:var(--muted);margin-top:2px}
+table{width:100%;border-collapse:collapse;margin-top:14px;font-size:12.5px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border)}
+th{color:var(--muted);font-weight:700;text-transform:uppercase;font-size:10.5px}
+.hidden{display:none}
+.tab-row{display:flex;gap:6px;margin-bottom:18px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.tab-btn{border:none;background:transparent;padding:9px 14px;font-size:13px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;border-radius:0}
+.tab-btn.active{color:var(--navy);border-bottom-color:var(--blue)}
+.stat-tile{flex:1;min-width:150px;background:var(--light);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px}
+.stat-tile .label{font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.5px}
+.stat-tile .value{font-size:22px;font-weight:800;color:var(--navy);margin-top:4px}
+.bar-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:12px}
+.bar-label{width:180px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar-track{flex:1;background:var(--border);border-radius:4px;height:14px;overflow:hidden}
+.bar-fill{height:100%;background:var(--blue);border-radius:4px}
+.bar-fill.sai{background:var(--green)}
+.bar-value{width:48px;text-align:right;color:var(--muted)}
+.notice{font-size:12.5px;padding:10px 14px;border-radius:var(--radius-xs);margin-bottom:14px;background:var(--amber-bg);border-left:3px solid var(--amber);color:var(--amber)}
+.notice.ok{background:var(--green-bg);border-left-color:var(--green);color:var(--green)}
+.notice.err{background:var(--red-bg);border-left-color:var(--red);color:var(--red)}
+footer{text-align:center;font-size:11.5px;color:var(--muted);padding:30px 0}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div><h1>SRAIS Tool<span>Scaling Responsible AI in Startups</span></h1></div>
+  <div style="font-size:12px;opacity:.7" id="respondentTag"></div>
+</div>
+
+<div class="container">
+
+  <div class="card" id="accessCard">
+    <div class="sec-label">Access</div>
+    <div class="sec-title">Enter Your Access Code</div>
+    <div class="sec-desc">Do not have a code yet? Use "Request Access" below.</div>
+    <label class="field-label">Access Code</label>
+    <textarea id="fAccessCode" style="min-height:34px"></textarea>
+    <div id="accessNotice"></div>
+    <div class="btn-row">
+      <button onclick="showAdminLogin()">Admin</button>
+      <button class="primary" onclick="checkAccessCode()">Continue</button>
+    </div>
+    <div class="btn-row" style="margin-top:8px">
+      <button onclick="showRequestAccess()" style="width:100%">Request Access</button>
+      <span></span>
+    </div>
+  </div>
+
+  <div class="card hidden" id="requestAccessCard">
+    <div class="sec-label">Access</div>
+    <div class="sec-title">Request an Access Code</div>
+    <div class="sec-desc">A code will be generated for you immediately, but it only starts working once an administrator approves it. Keep the code shown - you will need it to log in once it is active.</div>
+    <label class="field-label">Innovator / Organisation Name</label>
+    <textarea id="fReqInnovator" style="min-height:34px"></textarea>
+    <label class="field-label">AI Solution Name</label>
+    <textarea id="fReqSolution" style="min-height:34px"></textarea>
+    <label class="field-label">Contact Email</label>
+    <textarea id="fReqEmail" style="min-height:34px"></textarea>
+    <div id="requestAccessNotice"></div>
+    <div class="btn-row">
+      <button onclick="backToAccess()">Back</button>
+      <button class="primary" onclick="submitAccessRequest()">Request Code</button>
+    </div>
+  </div>
+
+  <div class="card hidden" id="adminLoginCard">
+    <div class="sec-label">Admin</div>
+    <div class="sec-title">Admin Login</div>
+    <div class="sec-desc">Enter the admin password to manage the tool.</div>
+    <label class="field-label">Admin Password</label>
+    <textarea id="fAdminKey" style="min-height:34px"></textarea>
+    <div id="adminLoginNotice"></div>
+    <div class="btn-row">
+      <button onclick="backToAccess()">Back</button>
+      <button class="primary" onclick="adminLogin()">Enter Admin View</button>
+    </div>
+  </div>
+
+  <div class="card hidden" id="adminViewCard">
+    <div class="sec-label">Admin</div>
+    <div class="sec-title">Admin Dashboard</div>
+    <div class="tab-row">
+      <button class="tab-btn active" id="tabBtn-responses" onclick="showAdminTab('responses')">Responses</button>
+      <button class="tab-btn" id="tabBtn-codes" onclick="showAdminTab('codes')">Access Codes</button>
+      <button class="tab-btn" id="tabBtn-log" onclick="showAdminTab('log')">Access Log</button>
+      <button class="tab-btn" id="tabBtn-analytics" onclick="showAdminTab('analytics')">Analytics</button>
+    </div>
+
+    <div id="adminTab-responses" class="admin-tab">
+      <div id="adminTableWrap"></div>
+    </div>
+
+    <div id="adminTab-codes" class="admin-tab hidden">
+      <div class="sec-desc">Approve a pending self-signup request by setting it Active, or add a code directly.</div>
+      <div id="adminCodesWrap"></div>
+      <div class="qgroup-title">Add a Code Directly</div>
+      <label class="field-label">Innovator / Organisation Name</label>
+      <textarea id="fNewCodeInnovator" style="min-height:34px"></textarea>
+      <label class="field-label">AI Solution Name</label>
+      <textarea id="fNewCodeSolution" style="min-height:34px"></textarea>
+      <label class="field-label">Code (leave blank to auto-generate)</label>
+      <textarea id="fNewCodeValue" style="min-height:34px"></textarea>
+      <div id="addCodeNotice"></div>
+      <div class="btn-row">
+        <span></span>
+        <button class="primary" onclick="addCode()">Add Code (Active)</button>
+      </div>
+    </div>
+
+    <div id="adminTab-log" class="admin-tab hidden">
+      <div class="sec-desc">Most recent access attempts first, valid and invalid.</div>
+      <div id="adminLogWrap"></div>
+    </div>
+
+    <div id="adminTab-analytics" class="admin-tab hidden">
+      <div id="adminAnalyticsWrap"></div>
+    </div>
+
+    <div class="btn-row">
+      <button onclick="backToAccess()">Back</button>
+      <span></span>
+    </div>
+  </div>
+
+  <div class="card hidden" id="introCard">
+    <div class="sec-label">Before you start</div>
+    <div class="sec-title">Innovator and Solution Details</div>
+    <div class="sec-desc">This assessment scores your AI solution on two parallel dimensions at every stage of development: Responsible AI (RAI) compliance and Scalability (SAI). Complete each stage in order. Your cumulative score is shown after every stage.</div>
+    <label class="field-label">Innovator / Organisation Name</label>
+    <textarea id="fInnovator" style="min-height:34px"></textarea>
+    <label class="field-label">AI Solution Name</label>
+    <textarea id="fSolution" style="min-height:34px"></textarea>
+    <label class="field-label">Respondent Name and Role</label>
+    <textarea id="fRespondent" style="min-height:34px"></textarea>
+    <div class="btn-row">
+      <span></span>
+      <button class="primary" onclick="startAssessment()">Start Assessment</button>
+    </div>
+  </div>
+
+  <div id="assessmentArea" class="hidden">
+    <div class="stepper" id="stepper"></div>
+    <div class="stage-nav">
+      <span id="stageNavLabel"></span>
+      <span id="stageNavCount"></span>
+    </div>
+
+    <div class="card">
+      <div class="sec-label" id="stageLabel"></div>
+      <div class="sec-title" id="stageTitle"></div>
+      <div class="sec-desc">Answer the Responsible AI (RAI) questions and the Scalability (SAI) questions for this stage. Both are scored independently.</div>
+
+      <div class="qgroup-title">Responsible AI (RAI) Questions</div>
+      <div id="raiQuestions"></div>
+
+      <div class="qgroup-title">Scalability (SAI) Questions</div>
+      <div id="saiQuestions"></div>
+
+      <label class="field-label">Activities carried out at this stage</label>
+      <textarea id="fActivities"></textarea>
+      <label class="field-label">Challenges encountered at this stage</label>
+      <textarea id="fChallenges"></textarea>
+      <label class="field-label">Opportunities for improvement at this stage</label>
+      <textarea id="fOpportunities"></textarea>
+
+      <div class="summary-box">
+        <div class="summary-tile">
+          <div class="label">Stage RAI subtotal</div>
+          <div class="value" id="stageRaiScore">0</div>
+          <div class="sub" id="stageRaiOf"></div>
+        </div>
+        <div class="summary-tile">
+          <div class="label">Stage SAI subtotal</div>
+          <div class="value" id="stageSaiScore">0</div>
+          <div class="sub" id="stageSaiOf"></div>
+        </div>
+        <div class="summary-tile">
+          <div class="label">Cumulative RAI %</div>
+          <div class="value" id="cumRaiPct">0%</div>
+          <div class="sub">of grand total (540)</div>
+        </div>
+        <div class="summary-tile">
+          <div class="label">Cumulative SAI %</div>
+          <div class="value" id="cumSaiPct">0%</div>
+          <div class="sub">of grand total (565)</div>
+        </div>
+      </div>
+
+      <div id="incompleteNotice"></div>
+      <div class="btn-row">
+        <button id="btnBack" onclick="prevStage()">Back</button>
+        <button class="primary" id="btnNext" onclick="nextStage()">Next Stage</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="finalArea" class="hidden">
+    <div class="card">
+      <div class="sec-label">Assessment complete</div>
+      <div class="sec-title">Final Scorecard</div>
+      <div class="sec-desc">Cumulative subtotal and percentage of grand total at the end of each stage.</div>
+      <table id="finalTable">
+        <thead><tr><th>Stage</th><th>RAI subtotal</th><th>RAI cumulative %</th><th>SAI subtotal</th><th>SAI cumulative %</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="summary-box">
+        <div class="summary-tile">
+          <div class="label">Final RAI score</div>
+          <div class="value" id="finalRai">0%</div>
+          <div class="sub">of 540 points possible</div>
+        </div>
+        <div class="summary-tile">
+          <div class="label">Final SAI score</div>
+          <div class="value" id="finalSai">0%</div>
+          <div class="sub">of 565 points possible</div>
+        </div>
+      </div>
+      <div id="submitNotice"></div>
+      <div class="btn-row">
+        <button onclick="downloadExcel()">Download as Excel</button>
+        <button class="primary" onclick="submitResponses()">Submit Responses</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>SRAIS Tool</footer>
+</div>
+
+<script>
+const SRAIS_DATA = [{"stage": "Problem Definition", "rai": [{"principle": "Proportionality and Do No Harm", "question": "Can this problem be solved by a non-AI technique?", "type": "single", "options": [{"label": "Yes", "score": 0}, {"label": "No", "score": 5}], "max": 5}, {"principle": "Proportionality and Do No Harm", "question": "Do you use a technique for anticipating, or measuring and profiling the benefits your AI solution brings to human beings, human rights and fundamental freedoms, communities, society and culture at large or the environment and ecosystems?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Proportionality and Do No Harm", "question": "Do you have a technique to anticipate, or measure, establish and profile which parts of the process of the AI do not add value toward achieving legitimate goals or objectives?", "type": "single", "options": [{"label": "Yes", "score": 0}, {"label": "No", "score": 0}], "max": 0}, {"principle": "Proportionality and Do No Harm", "question": "Do you have a technique to anticipate, or measure, establish and profile risks that your AI bring to human beings, human rights and fundamental freedoms, communities, society and culture at large or the environment and ecosystems?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Proportionality and Do No Harm", "question": "Does your AI’s anticipated benefits outweigh the risks?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Proportionality and Do No Harm", "question": "Do you have a mitigation strategy to the risks?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Proportionality and Do No Harm", "question": "What does the strategy involve, from this list? (tick all that apply)", "type": "multi", "options": [{"label": "Human determination to accompany all AI decisions to compare deviations", "score": 2}, {"label": "Override the AI", "score": 3}, {"label": "Set up a reparation regime for the harms caused by penalizing developers, vendors, and owners of the AI, according to scientifically determined proportions?", "score": 4}, {"label": "Decommission it", "score": 5}], "max": 14}, {"principle": "Proportionality and Do No Harm", "question": "Does your AI solution conduct social scoring or mass surveillance purposes? These are AI concepts that breach human rights greatly and should be discouraged.", "type": "single", "options": [{"label": "Yes", "score": 2}, {"label": "No", "score": 4}], "max": 4}, {"principle": "Proportionality and Do No Harm", "question": "Does your benefit and risk measurement and profiling technique consider reach to spaces occupied by the often-marginalized groups such as women/girls, the old, the youth, the illiterate, the PWD, the poor, etc, in terms of physical contact, language/media of communication used by them?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Fairness and non-discrimination", "question": "Is your process of problem co-definition done with a representative sample of the user communities in terms of; age, different language groups, race/color, political opinion, geography, nationality, ethnicity, affluency/economic condition, education level/literacy, persons with disabilities, girls and women, and disadvantaged, cultural systems/local communities (with locally-relevant content), rural/urban, marginalized and vulnerable people or people in vulnerable situations, where applicable? involve the anticipated user communities?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Fairness and non-discrimination", "question": "Is your process of problem co-definition conducted through accessible media, local language, voice, basic phones use, invasive telecom networks?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Fairness and non-discrimination", "question": "Is your problem co-definition conducted through a liaison who naturally belongs with the user community?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Fairness and non-discrimination", "question": "Is your problem co-definition conducted within a sociable, unhurried setting, and over multiple sessions?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Sustainability", "question": "Do you have a plan and technique for tracking and assessing the impact of the AI in terms of its social, economic, cultural, and environmental sustainability?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Sustainability", "question": "Is there a technique to mitigate negative impacts of this AI on social, economic, cultural, and environmental sustainability?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Sustainability", "question": "Do you have any plan and technique to track if the AI’s automation tends to create net job gains or losses?", "type": "single", "options": [{"label": "Yes", "score": 3}, {"label": "No", "score": 0}], "max": 3}, {"principle": "Sustainability", "question": "Does your plan and technique accommodate tracking the effect of this AI in terms of net job gains or losses to the often-excluded groups in terms of; age, different language groups, race/color, political opinion, geography, nationality, ethnicity, affluency/economic condition, education level/literacy, persons with disabilities, girls and women, and disadvantaged, cultural systems/local communities (with locally-relevant content), rural/urban, marginalized and vulnerable people or people in vulnerable situations, where applicable? GEDI", "type": "single", "options": [{"label": "Yes", "score": 3}, {"label": "No", "score": 0}], "max": 3}, {"principle": "Right to Privacy and Data Protection", "question": "During problem co-definition with users, is their data, insights or opinions kept with appropriate privacy, according to national, regional or international privacy and confidentiality framework, or national judicial system?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Multi-stakeholder and adaptive governance and collaboration", "question": "Is your development team made up of a significant part of the following expertise, or do you have a plan to consult them: AI expert; Domain expert; Ethics of AI or Responsible AI expert; Statistician; User community link person who is trusted by the community; Sociologist/psychologist; Policy expertise?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}], "sai": [{"principle": "", "question": "Is there an optional technique to the AI approach, with a better RoI estimate?", "type": "single", "options": [{"label": "Yes", "score": 0}, {"label": "No", "score": 5}], "max": 5}, {"principle": "", "question": "Do you use a technique for measuring the AI RoI?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}, {"label": "Yes", "score": 0}], "max": 5}, {"principle": "", "question": "Do you use a technique for anticipating and measuring socio-economic risks presented by the AI project?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Does the AI’s anticipated benefits outweigh the risks?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Are you planning to use a mitigating strategy to the risks?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "What does the strategy involve, from this list? (tick all that apply)", "type": "multi", "options": [{"label": "Human determination to accompany all AI decisions to compare deviations", "score": 2}, {"label": "Override the AI", "score": 3}, {"label": "Set up a reparation regime for the harms caused by penalizing developers, vendors, and owners of the AI, according to scientifically determined proportions?", "score": 4}, {"label": "Decommission it", "score": 5}], "max": 14}, {"principle": "", "question": "Does your benefit and risk measurement and profiling technique consider reach to spaces occupied by the often-marginalized groups such as women/girls, the old, the youth, the illiterate, the PWD, the poor, etc, in terms of physical contact, language/media of communication used by them?", "type": "single", "options": [{"label": "Yes", "score": 3}, {"label": "No", "score": 0}], "max": 3}, {"principle": "", "question": "Is your process of problem co-definition done with a representative sample of the user communities in terms of; age, different language groups, race/color, political opinion, geography, nationality, ethnicity, affluency/economic condition, education level/literacy, persons with disabilities, girls and women, and disadvantaged, cultural systems/local communities (with locally-relevant content), rural/urban, marginalized and vulnerable people or people in vulnerable situations, where applicable? involve the anticipated user communities?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Is your process of problem co-definition conducted through accessible media, local language, voice, basic phones use, invasive telecom networks?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Is your problem co-definition conducted through a liaison who naturally belongs with the user community?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Is your problem co-definition conducted within a sociable, unhurried setting, and over multiple sessions?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Do you have a plan and technique for tracking and assessing the socio-economic impact of the AI?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Is there a technique to mitigate negative impacts of this AI on social, economic, cultural, and environmental sustainability?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "During problem co-definition with users, is their data, insights or opinions kept with appropriate privacy, according to national, regional or international privacy and confidentiality framework, or national judicial system?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Is your team made up of a significant part of the following expertise, or do you have a plan to consult them: AI expert; Domain expert; Ethics of AI or Responsible AI expert; Statistician; User community link person who is trusted by the community; Sociologist/psychologist; Policy expertise?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Do you have a reward system for innovativeness, creativity and curiosity. in your team?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}], "rai_max": 94, "sai_max": 87}, {"stage": "Data Collection", "rai": [{"principle": "Safety and security", "question": "Have you defined the problem and converted the objectives, KPIs and Predictors (Features) to determine data variables for collection?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Safety and security", "question": "Do you consider data optimization techniques such as data augmentation or synthetic data generation to enhance the dataset?", "type": "single", "options": [{"label": "Yes", "score": 3}, {"label": "No", "score": 0}], "max": 3}, {"principle": "Safety and security", "question": "Do you regularly update the dataset with new data to reflect changes in the environment and refine the model?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Safety and security", "question": "Have you considered IoT sensor-based /auto data collection and its advantages/disadvantages VS human / manually collected data?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Safety and security", "question": "Do you have a plan for validating the accuracy of the data collected?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Safety and security", "question": "Are you making an effort to pre-process data appropriately based on standard procedures such as missing values, encoding, etc?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Fairness and non-discrimination", "question": "Are your data sources/subjects inclusive of your anticipated user communities in terms of; age, different language groups, race/color, political opinion, geography, nationality, ethnicity, affluency/economic condition, education level/literacy, persons with disabilities, girls and women, and disadvantaged, cultural systems/local communities (with locally-relevant content), rural/urban, marginalized and vulnerable people or people in vulnerable situations, where applicable?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Fairness and non-discrimination", "question": "Are the human data sources engaged through accessible media, language, voice, basic phones use, invasive telecom networks?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Fairness and non-discrimination", "question": "Are the human data sources engaged through a local person that they consider part of themselves?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Sustainability", "question": "Is the data collection plan executed with respect to the cultural practices of the human sources? Local language, acceptable gender interactions (some communities disapprove of male collectors interacting in particular ways with their womenfolk etc),", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Sustainability", "question": "Is the rewarding of the human data sources equitably included in the data economics and revenue? Are there fair plans to equitably reward them?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Right to Privacy and Data Protection", "question": "In your process of data collection and management, do you follow any national, regional or international privacy and confidentiality framework, or national judicial system? LINK TO REFERENCE", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Right to Privacy and Data Protection", "question": "Do you have a plan for measuring and mitigating privacy and confidentiality breaches?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Right to Privacy and Data Protection", "question": "Do you document the processes dealing with how privacy, confidentiality and appropriate data management practices were achieved?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Right to Privacy and Data Protection", "question": "Is the data collected from adequately informed persons in terms of how their data will be used and handled, including the reward system, with the informed consent requested in the right language and medium e.g. voice? The two stages of a standard informed consent, according to Research Support Office at the Oxford University, are as follows; Stage 1 (giving information): the person reflects on the information given about the purpose of the research and what is required of them; they are under no pressure to respond to the researcher immediately. Stage 2 (obtaining consent): the researcher reiterates the terms of the research, often as separate bullet points or clauses; the person agrees to each term (giving explicit consent) before agreeing to take part in the project as a whole. Now that consent has been obtained,", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Responsibility and accountability", "question": "Does your data management protocol include who is responsible and accountable for data usage which is unacceptable with an attached penalty?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}], "sai": [{"principle": "", "question": "Have you defined the problem and converted the objectives, KPIs and Predictors (Features) to determine data variables for collection?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Do you consider data optimization techniques such as data augmentation or synthetic data generation to enhance the dataset?", "type": "single", "options": [{"label": "Yes", "score": 3}, {"label": "No", "score": 0}], "max": 3}, {"principle": "", "question": "Do you regularly update the dataset with new data to reflect changes in the environment and refine the model?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Have you considered if the dataset would need the automation and accuracy of IoT sensors before selecting between sensors and manual human entry?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Do you make effort to validate the data collected? You may use techniques such as parallel collection regimes", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Do you pre-process the dataset to make it AI-ready through procedures such as: Cleaning, transforming, encoding, labelling, standard meta-data?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Where universe is not possible, do you consider scientific sampling to enable inclusivity of all social groups and diversity?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Do you endeavor to save costs of data collection by first evaluating if there exists the desired and contextual data of your anticipated users before collecting fresh data?", "type": "single", "options": [{"label": "Yes", "score": 3}, {"label": "No", "score": 2}], "max": 3}, {"principle": "", "question": "Are the human data sources engaged through accessible media, language, voice, basic phones use, invasive telecom networks?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Are the human data sources engaged through a local person that they consider part of themselves?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Is the data collection plan executed with respect to the cultural practices of the human sources? Local language, acceptable gender interactions (some communities disapprove of male collectors interacting in particular ways with their womenfolk etc),", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Is the rewarding of the human data sources equitably included in the data economics and revenue? Are there fair plans to equitably reward them?", "type": "single", "options": [{"label": "Yes", "score": 4}, {"label": "No", "score": 0}], "max": 4}, {"principle": "", "question": "In your process of data collection and management, do you follow any national, regional or international privacy and confidentiality framework, or national judicial system? LINK TO REFERENCE", "type": "single", "options": [{"label": "Yes", "score": 4}, {"label": "No", "score": 0}], "max": 4}, {"principle": "", "question": "Do you have a plan for measuring and mitigating privacy and confidentiality breaches?", "type": "single", "options": [{"label": "Yes", "score": 4}, {"label": "No", "score": 0}], "max": 4}, {"principle": "", "question": "Do you document the processes dealing with how privacy, confidentiality and appropriate data management practices were achieved?", "type": "single", "options": [{"label": "Yes", "score": 4}, {"label": "No", "score": 0}], "max": 4}, {"principle": "", "question": "Is the data collected from adequately informed persons in terms of how their data will be used and handled, including the reward system, with the informed consent requested in the right language and medium e.g. voice? The two stages of a standard informed consent, according to Research Support Office at the Oxford University, are as follows; Stage 1 (giving information): the person reflects on the information given about the purpose of the research and what is required of them; they are under no pressure to respond to the researcher immediately. Stage 2 (obtaining consent): the researcher reiterates the terms of the research, often as separate bullet points or clauses; the person agrees to each term (giving explicit consent) before agreeing to take part in the project as a whole. Now that consent has been obtained,", "type": "single", "options": [{"label": "Yes", "score": 4}, {"label": "No", "score": 0}], "max": 4}, {"principle": "", "question": "Does your data management protocol include who is responsible and accountable for data usage which is unacceptable, with an attached penalty?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}], "rai_max": 78, "sai_max": 76}, {"stage": "Model Development", "rai": [{"principle": "Safety and security", "question": "Do you compare the performance of various ML and GenAI algorithms to compare performances and use the best?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Safety and security", "question": "Do you try to strike a balance between algorithm complexity and computational efficiency?", "type": "single", "options": [{"label": "Yes", "score": 3}, {"label": "No", "score": 0}], "max": 3}, {"principle": "Safety and security", "question": "Do you employ existing infrastructure that follows proven technological best practices to enable easy and scalable model development leading to affordable but precise models? e.g. Cloud services platforms such as AWS, Azure, GCP, Keras and Scikit-Learn etc?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Safety and security", "question": "Do you compare the model’s prediction/generation/diagnosis against the human expert’s to refine the model?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Safety and security", "question": "Do you compare predicted against eventual/actual outcome with representative sample of users in terms of: Age, different language groups, race/color, political opinion, geography, nationality, ethnicity, affluency/economic condition, education level/literacy, persons with disabilities, girls and women, and disadvantaged, cultural systems/local communities (with locally-relevant content), rural/urban, marginalized and vulnerable people or people in vulnerable situations, where applicable?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Safety and security", "question": "Do you perform A/B testing by comparing model performance against baselines or alternative models in real-world scenarios?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Safety and security", "question": "Do your models demonstrate accuracy, precision, and recall?", "type": "single", "options": [{"label": "Yes", "score": 5}], "max": 5}, {"principle": "Safety and security", "question": "If the model displays significant imprecision, do you determine whether the imprecision arises from data or algorithm?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Safety and security", "question": "Does the team carry out security and breach assessment at vulnerable points of the platforms used for model development?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Sustainability", "question": "Does the model recommend any action which is unacceptable culturally for the anticipated user community?", "type": "single", "options": [{"label": "Yes", "score": 0}, {"label": "No", "score": 5}], "max": 5}, {"principle": "Sustainability", "question": "Do you invite local communities to share indigenous knowledge to consider including in the model?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Sustainability", "question": "Do you compare the power consumptions of the various models, during training and querying (depending on the ML algorithm) and considering the least power consumers?", "type": "single", "options": [{"label": "Yes", "score": 3}, {"label": "No", "score": 0}], "max": 3}], "sai": [{"principle": "", "question": "Do you select the right algorithm and features for the right type of data and task, and based on compared model precision? For instance, - linear regression for predicting continuous outcomes; decision trees for classification tasks; deep learning such as CNN for image analytics; unlabeled data for unsupervised clustering K-means clustering etc.", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Do you try to strike a balance between algorithm complexity and computational efficiency?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Do you consider infrastructure, platforms and open-source libraries that support easy development and deployment of the AI system by enabling scalability, interpretability and computational efficiency, e.g. Cloud services platforms such as AWS, Azure, GCP, Keras and Scikit-Learn etc?", "type": "single", "options": [{"label": "Yes", "score": 5}], "max": 5}, {"principle": "", "question": "Do you employ the post-training model evaluation techniques of fresh testing dataset and evaluation?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Do you conduct robustness testing by evaluating the model's performance under various conditions, with various groups of people, including adversarial examples and edge cases?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Do you perform A/B testing by comparing model performance against baselines or alternative models in real-world scenarios?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Do your models demonstrate accuracy, precision, and recall?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Systematically analyze model errors to identify areas for improvement?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Do you consider existing platforms which can be used to integrate security features into the model architecture to prevent adversarial attacks?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Does your AI offer services in areas which reconcile and not disagree with the cultures and values of the user community", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Do you invite local communities to share indigenous knowledge to consider including in the model?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "During training and querying, does the AI algorithm consume energy to such an extent that would exert unmanageable power costs or penalize the carbon footprint of the users or owners?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}], "rai_max": 56, "sai_max": 60}, {"stage": "Solution Deployment", "rai": [{"principle": "Proportionality, Do No Harm / Safety and security", "question": "Are there actual benefits that your AI brings to human beings, human rights and fundamental freedoms, communities, society?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Proportionality, Do No Harm / Safety and security", "question": "Are there actual risks that your AI brings to human beings, human rights and fundamental freedoms, communities, society?", "type": "single", "options": [{"label": "Yes", "score": 0}, {"label": "No", "score": 5}], "max": 5}, {"principle": "Proportionality, Do No Harm / Safety and security", "question": "If the AI displays significant imprecision, do you determine whether the imprecision arises from data or algorithm?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Proportionality, Do No Harm / Safety and security", "question": "If the AI solution displays significant imprecision, what strategy do you use among the following? Human determination to accompany all AI decisions to compare deviations; Override the AI; Set up a reparation regime for the harm caused by penalizing developers, vendors, and owners of the AI, according to scientifically determined proportions? Decommission it;", "type": "single", "options": [{"label": "Yes", "score": 2}, {"label": "Yes", "score": 3}, {"label": "Yes", "score": 4}, {"label": "Yes", "score": 5}], "max": 5}, {"principle": "Proportionality, Do No Harm / Safety and security", "question": "Does the AI solution inform the user about the precision level of the predicted value?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Proportionality, Do No Harm / Safety and security", "question": "Does the AI embed a module that asks users to rate the predictive precision levels based on the actual VS the predicted?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Fairness and non-discrimination", "question": "Does your deployment intentionally target the various groups of the user community in terms of: Age, different language groups, race/color, political opinion, geography, nationality, ethnicity, affluency/economic condition, education level/literacy, persons with disabilities, girls and women, and disadvantaged, cultural systems/local communities (with locally-relevant content), rural/urban, marginalized and vulnerable people or people in vulnerable situations, where applicable?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Fairness and non-discrimination", "question": "Is the solution packaged with ICT tools that enable easy access within that specific community, in terms of: Tools that can communicate in local languages; Voice tools for the illiterate; Basic phones; Invasive but basic telecommunications networks; Affordable costs?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Fairness and non-discrimination", "question": "Does the solution have a module that prompts user to provide easy feedback about their opinion of the service and what could be made better?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Fairness and non-discrimination", "question": "Do you have a plan to consider updating solution to consider integrating prevalently desired features in the feedback?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Fairness and non-discrimination", "question": "Do you deploy through locally trusted persons?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Sustainability", "question": "Do you have a plan and technique for tracking and assessing the impact of an AI in terms of its social, economic, cultural, and environmental sustainability?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Sustainability", "question": "Is there a technique to mitigate negative impacts of this AI on social, economic, cultural, and environmental sustainability?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Sustainability", "question": "Do you consider accessibility, scalability, sustainability and costs of integrating AI models into existing systems e.g. Docker and Kubernetes, cloud deployment, etc to ensure smooth adoption, usability and scalable deployment?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Sustainability", "question": "Does the AI recognize, respect, and / or attempt to preserve cultural practices, particularly those that do not breach human rights?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Sustainability", "question": "Do you have any plan and technique to track if the AI’s automation tends to create net job gains or losses?", "type": "single", "options": [{"label": "Yes", "score": 3}, {"label": "No", "score": 0}], "max": 3}, {"principle": "Sustainability", "question": "Does your plan and technique accommodate tracking the effect of this AI in terms of net job gains or losses to the often-excluded groups in terms of; age, different language groups, race/color, political opinion, geography, nationality, ethnicity, affluency/economic condition, education level/literacy, persons with disabilities, girls and women, and disadvantaged, cultural systems/local communities (with locally-relevant content), rural/urban, marginalized and vulnerable people or people in vulnerable situations, where applicable? GEDI", "type": "single", "options": [{"label": "Yes", "score": 3}, {"label": "No", "score": 0}], "max": 3}, {"principle": "Sustainability", "question": "Does the AI have a module to monitor and declare its power consumption (proportional to the carbon footprint) during training and querying?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Right to Privacy and Data Protection", "question": "Do you have a plan to establish and intervene if the data center or cloud equipment is not free of surveillance that unknowingly shares user data?", "type": "single", "options": [{"label": "Yes", "score": 3}, {"label": "No", "score": 0}], "max": 3}, {"principle": "Human oversight and determination", "question": "Does the decision of your AI solution call the attention of the user to also scrutinize the decision first before implementing?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Human oversight and determination", "question": "Does the AI embed a module which prompts the whistle-blowing user to submit a concern with their identification protected?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Transparency and explainability", "question": "Does the AI provide users with the understanding of how each stage is developed, connected, how every application stage/functionality of the AI works, the responsibility of the various stages of development?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Transparency and explainability", "question": "Does the AI let the user know what it can do, what it cannot do under what circumstances, and the risks involved?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Transparency and explainability", "question": "Do users know how the risks are being mitigated?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Transparency and explainability", "question": "Does the AI explain why it has arrived at a decision?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Transparency and explainability", "question": "Does the AI give confidence levels of its decision (e.g. probability of that decision being true)?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Transparency and explainability", "question": "Is all the above information given in the right media, language, voice for illiterate etc?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Responsibility and accountability", "question": "Does the AI solution attribute ethical and legal responsibility for any stage of the life cycle of AI systems, as well as in cases of remedy related to AI systems, to physical persons or to existing legal entities? For instance: At research stage, the researcher and university unit and even funder sponsoring the research; At development, the developer, their sponsors and also the data sources; At deployment and scaling, the researcher/developer/vendor/user/data sources]? Any concern in the algorithm, the BigTech owner of the algorithm is liable.", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Responsibility and accountability", "question": "Is this attribution public?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Responsibility and accountability", "question": "Does the AI solution freely provide, to the users, information about the data that was used to train it (metadata)?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Responsibility and accountability", "question": "Do you audit the quality of service in terms of accuracy, accessibility, ease of use, costs, etc", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Multi-stakeholder and adaptive governance and collaboration", "question": "Do you share any of your concerns about the safety of the AI with the entire AI eco-system – government, regulators, user community, vendors, algorithm developers etc", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}], "sai": [{"principle": "", "question": "Are there actual benefits that your AI brings to human beings, human rights and fundamental freedoms, communities, society?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Are there actual risks that your AI brings to human beings, human rights and fundamental freedoms, communities, society?", "type": "single", "options": [{"label": "Yes", "score": 0}, {"label": "No", "score": 5}], "max": 5}, {"principle": "", "question": "If the AI displays significant imprecision, do you determine whether the imprecision arises from data or algorithm?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "If the AI solution displays significant imprecision, what strategy do you use among the following? Human determination to accompany all AI decisions to compare deviations; Override the AI; Set up a reparation regime for the harm caused by penalizing developers, vendors, and owners of the AI, according to scientifically determined proportions? Decommission it;", "type": "single", "options": [{"label": "Yes", "score": 2}, {"label": "Yes", "score": 3}, {"label": "Yes", "score": 4}, {"label": "Yes", "score": 5}], "max": 5}, {"principle": "", "question": "Does the AI solution inform the user about the precision level of the predicted value?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Does the AI embed a module that asks users to rate the predictive precision levels based on the actual VS the predicted?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Does your deployment intentionally target the various groups of the user community in terms of: Age, different language groups, race/color, political opinion, geography, nationality, ethnicity, affluency/economic condition, education level/literacy, persons with disabilities, girls and women, and disadvantaged, cultural systems/local communities (with locally-relevant content), rural/urban, marginalized and vulnerable people or people in vulnerable situations, where applicable?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Do you make the solution effortless to use through friendly user interface that aligns with lifestyles, exposure levels, tech levels of the user community e.g. interfaces for basic phones, local languages and voice for illiterate in rural or marginalized spaces?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Do you make the solution easy to try through the following - free access (if premium), interactive landing page, and one-click login etc?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Does the solution have a module that prompts user to provide easy feedback about their opinion of the service and what could be made better?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Do you have a plan to consider updating solution to consider integrating prevalently desired features in the feedback?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Do you use simple, clear, non-technical language and metrics that users care about, in creating awareness, value proposition and promotion to anticipated users? Such statements are such as “accurately predicts the first day of rainfall” or “accurately diagnoses the illness” etc.", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Do you have a plan and technique for tracking and assessing the impact of an AI in terms of its social, economic, cultural, and environmental sustainability?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Is there a technique to mitigate negative impacts of this AI on social, economic, cultural, and environmental sustainability?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Do you consider accessibility, scalability, sustainability and costs of integrating AI models into existing systems e.g. Docker and Kubernetes, cloud deployment, etc to ensure smooth adoption, usability and scalable deployment?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Do you first build and deploy a simple, working MVP that is easy to use to evaluate initial user responses?", "type": "single", "options": [{"label": "Yes", "score": 5}], "max": 5}, {"principle": "", "question": "Does the interfaces of the solution and how it interacts with users respect cultures, values and patterns of lifestyles of the user community?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Does the AI have a module to monitor and declare its power consumption (to manage power costs etc) during scaling training and querying?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Do you put a human in the loop to keep auditing the precision and accuracy of the solution", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Does the AI embed a module which prompts the whistle-blowing user to submit a concern with their identification protected?", "type": "single", "options": [{"label": "Yes", "score": 3}, {"label": "No", "score": 0}], "max": 3}, {"principle": "", "question": "Does the AI provide users with the understanding of how each stage is developed, connected, how collected, how data is managed, every application stage/functionality of the AI works, the responsibility of the various stages of development?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Does the AI let the user know what it can do, what it cannot do under what circumstances, and the risks involved?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Do users know how the risks are being mitigated?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Does the AI explain why it has arrived at a decision?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Does the AI give confidence levels of its decision (e.g. probability of that decision being true)?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Is all the above information given in the right media, language, voice for illiterate etc?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Does the AI solution attribute ethical and legal responsibility for any stage of the life cycle of AI systems, as well as in cases of remedy related to AI systems, to physical persons or to existing legal entities? For instance: At research stage, the researcher and university unit and even funder sponsoring the research; At development, the developer, their sponsors and also the data sources; At deployment and scaling, the researcher/developer/vendor/user/data sources]? Any concern in the algorithm, the BigTech owner of the algorithm is liable.", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Is this attribution public?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Does the AI solution freely provide, to the users, information about the data that was used to train it (metadata)?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Do you audit the quality of service in terms of accuracy, accessibility, ease of use, costs, etc", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Do you share any of your concerns about the safety of the AI with the entire AI eco-system – government, regulators, user community, vendors, algorithm developers etc", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}], "rai_max": 154, "sai_max": 153}, {"stage": "Solution Scaling", "rai": [{"principle": "Proportionality, Do No Harm / Safety and security", "question": "Given the risks brought by AI, and the values of the users and developers, is there a moral justification for scaling?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Proportionality, Do No Harm / Safety and security", "question": "Do you coordinate or plan to coordinate the various actors – users, vendors, owners, developers, etc in the process of scaling your AI solution?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Proportionality, Do No Harm / Safety and security", "question": "Considering that in AI for social good, bigger in not always better, do you consider an optimal extent to the scaling of your AI solution if it’s for social good?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Proportionality, Do No Harm / Safety and security", "question": "Do you plan to, or do you conduct, dynamic evaluation to stay attuned to changing impact of the AI to the ecosystem or user community, by continuously gathering, assessing, and integrating data at scale, circumstances, and outcomes change?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Proportionality, Do No Harm / Safety and security", "question": "Does your solution demonstrate safe levels of predictive/diagnostic/generative accuracy?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Proportionality, Do No Harm / Safety and security", "question": "If the AI displays significant imprecision, do you determine whether the imprecision arises from data or algorithm?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Proportionality, Do No Harm / Safety and security", "question": "If the AI solution displays significant imprecision, what strategy do you use among the following? Human determination to accompany all AI decisions to compare deviations; Override the AI; Set up a reparation regime for the harm caused by penalizing developers, vendors, and owners of the AI, according to scientifically determined proportions? Decommission it;", "type": "single", "options": [{"label": "Yes", "score": 2}, {"label": "Yes", "score": 3}, {"label": "Yes", "score": 4}, {"label": "Yes", "score": 5}], "max": 5}, {"principle": "Proportionality, Do No Harm / Safety and security", "question": "Does the AI solution inform the user about the precision level of the predicted value?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Proportionality, Do No Harm / Safety and security", "question": "Does the AI embed a module that asks users to rate the predictive precision levels based on the actual VS the predicted?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Fairness and non-discrimination", "question": "Does your deployment intentionally target the various groups of the user community in terms of: Age, different language groups, race/color, political opinion, geography, nationality, ethnicity, affluency/economic condition, education level/literacy, persons with disabilities, girls and women, and disadvantaged, cultural systems/local communities (with locally-relevant content), rural/urban, marginalized and vulnerable people or people in vulnerable situations, where applicable?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Fairness and non-discrimination", "question": "Is the solution packaged with ICT tools that enable easy access within that specific community, in terms of: Tools that can communicate in local languages; Voice tools for the illiterate; basic phones; invasive but basic telecommunications networks; affordable costs?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Fairness and non-discrimination", "question": "Does the solution have a module that prompts user to provide easy feedback about their opinion of the service and what could be made better?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Fairness and non-discrimination", "question": "Do you have a plan to consider updating solution to consider integrating prevalently desired features in the feedback?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Fairness and non-discrimination", "question": "Do you deploy through locally trusted persons?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Sustainability", "question": "Do you have a plan and technique for tracking and assessing the impact of an AI solution in terms of its social, economic, cultural, and environmental sustainability? LINK TO AI IMPACT ASSESSMENT TOOL", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Sustainability", "question": "Do you track metrics such as how many have used, and particularly repeat use, and their reasons for repeat use or lack of?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Sustainability", "question": "Is there a technique to mitigate negative impacts of this AI on social, economic, cultural, and environmental sustainability?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Sustainability", "question": "Does the AI recognize, respect, and / or attempt to preserve cultural practices, particularly those that do not breach human rights?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Sustainability", "question": "Do you have any plan and technique to track if the AI’s automation tends to create net job gains or losses?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Sustainability", "question": "Does your plan and technique accommodate tracking the effect of this AI in terms of net job gains or losses to the often-excluded groups in terms of; age, different language groups, race/color, political opinion, geography, nationality, ethnicity, affluency/economic condition, education level/literacy, persons with disabilities, girls and women, and disadvantaged, cultural systems/local communities (with locally-relevant content), rural/urban, marginalized and vulnerable people or people in vulnerable situations, where applicable? GEDI", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Sustainability", "question": "Does the AI have a module to monitor and declare its power consumption (proportional to the carbon footprint) during training and querying?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Right to Privacy and Data Protection", "question": "Is your solution designed to enable seamless scaling by having ready interfaces for more language tools, more functionalities, new data, different telecommunications media etc?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Right to Privacy and Data Protection", "question": "Do you have a plan to establish and intervene if the data center or cloud equipment is not free of surveillance that unknowingly shares user data?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Human oversight and determination", "question": "Does the decision of your AI solution call the attention of the user to also scrutinize the decision first before implementing?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Human oversight and determination", "question": "Does the AI embed a module which prompts the whistle-blowing user to submit a concern with their identification protected?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Transparency and explainability", "question": "Does the AI provide users with the understanding of how each stage is developed, connected, what type of data, how collected, how data is managed, every application stage/functionality of the AI works, the responsibility of the various stages of development?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Transparency and explainability", "question": "Does the AI let the user know what it can do, what it cannot do under what circumstances, and the risks involved?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Transparency and explainability", "question": "Do users know how the risks are being mitigated?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Transparency and explainability", "question": "Does the AI explain why it has arrived at a decision?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Transparency and explainability", "question": "Does the AI give confidence levels of its decision (e.g. probability of that decision being true)?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Transparency and explainability", "question": "Is all the above information given in the right media, language, voice for illiterate etc?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Responsibility and accountability", "question": "Does the AI solution attribute ethical and legal responsibility for any stage of the life cycle of AI systems, as well as in cases of remedy related to AI systems, to physical persons or to existing legal entities? For instance: At research stage, the researcher and university unit and even funder sponsoring the research; At development, the developer, their sponsors and also the data sources; At deployment and scaling, the researcher/developer/vendor/user/data sources]? Any concern in the algorithm, the BigTech owner of the algorithm is liable.", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Responsibility and accountability", "question": "Is this attribution public?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Responsibility and accountability", "question": "Do you audit the quality of service in terms of accuracy, accessibility, ease of use, costs, etc", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Responsibility and accountability", "question": "Does the solution demonstrate any early indications of impact?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "Multi-stakeholder and adaptive governance and collaboration", "question": "Do you share any of your concerns about the safety of the AI with the entire AI eco-system – government, regulators, user community, vendors, algorithm developers etc", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}], "sai": [{"principle": "", "question": "Does the scaling benefits outweigh the risks in terms of Return on Investment?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Do you establish mechanisms to incorporate user feedback and new data to improve model performance?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Considering that in AI for social good, bigger in not always better, do you consider an optimal extent to the scaling of your AI solution if it’s for social good?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Do you regularly check for data drift, caused by changes in data distribution by regularly retraining with new data and validating models to sustain performance?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Does your solution demonstrate high levels of predictive/diagnostic/generative accuracy, precision, and recall?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "If the AI displays significant imprecision, do you determine whether the imprecision arises from data or algorithm?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "If the AI solution displays significant imprecision, what strategy do you use among the following? Human determination to accompany all AI decisions to compare deviations; Override the AI; Set up a reparation regime for the harm caused by penalizing developers, vendors, and owners of the AI, according to scientifically determined proportions? Decommission it;", "type": "single", "options": [{"label": "Yes", "score": 2}, {"label": "Yes", "score": 3}, {"label": "Yes", "score": 4}, {"label": "Yes", "score": 5}], "max": 5}, {"principle": "", "question": "Does the AI solution inform the user about the precision level of the predicted value?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Does the AI embed a module that asks users to rate the predictive precision levels based on the actual VS the predicted?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Does your deployment intentionally target the various groups of the user community in terms of: Age, different language groups, race/color, political opinion, geography, nationality, ethnicity, affluency/economic condition, education level/literacy, persons with disabilities, girls and women, and disadvantaged, cultural systems/local communities (with locally-relevant content), rural/urban, marginalized and vulnerable people or people in vulnerable situations, where applicable?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Is the solution packaged with ICT tools that enable easy access within that specific community, in terms of: Tools that can communicate in local languages; Voice tools for the illiterate; basic phones; invasive but basic telecommunications networks; affordable costs?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Do you establish mechanisms to incorporate user feedback and new data to improve model performance?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Do you iterate and refine features, including functionalities, media, user interfaces, accessibility, costs, etc. continuously based on feedback data, particularly sentiments that seem prevalent or of wider concern?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Do you deploy through locally trusted persons?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Do you have a plan and technique for tracking and assessing the impact of an AI solution in terms of its social, economic, cultural, and environmental sustainability? LINK TO AI SCALING IMPACT ASSESSMENT TOOL", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Do you track metrics such as how many have used, and particularly repeat use, and their reasons for repeat use of lack of?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Is there a technique to mitigate negative impacts of this AI on social, economic, cultural, and environmental sustainability?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Does the AI recognize, respect, and / or attempt to preserve cultural practices, particularly those that do not breach human rights?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Does the AI have a module to monitor and declare its power consumption (for the sake of managing power costs) during training and querying?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Is your solution designed to enable seamless scaling by having ready interfaces for more language tools, more functionalities, new data, different telecommunications media etc?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Does the decision of your AI solution call the attention of the user to also scrutinize the decision first before implementing?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Does the AI embed a module which prompts the whistle-blowing user to submit a concern with their identification protected?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Does the AI provide users with the understanding of how each stage is developed, connected, what type of data, how collected, how data is managed, every application stage/functionality of the AI works, the responsibility of the various stages of development?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Does the AI let the user know what it can do, what it cannot do under what circumstances, and the risks involved?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Do users know how the risks are being mitigated?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Does the AI explain why it has arrived at a decision?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Does the AI give confidence levels of its decision (e.g. probability of that decision being true)?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Is all the above information given in the right media, language, voice for illiterate etc?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Does the AI solution attribute ethical and legal responsibility for any stage of the life cycle of AI systems, as well as in cases of remedy related to AI systems, to physical persons or to existing legal entities? For instance: At research stage, the researcher and university unit and even funder sponsoring the research; At development, the developer, their sponsors and also the data sources; At deployment and scaling, the researcher/developer/vendor/user/data sources]? Any concern in the algorithm, the BigTech owner of the algorithm is liable.", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Is this attribution public?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Do you regularly check the model's accuracy and efficiency, watching for any signs of degradation?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Does the solution demonstrate any initial impact?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}, {"principle": "", "question": "Do you regularly audit the model to ensure ongoing compliance with relevant regulations and standards and share with authorities?", "type": "single", "options": [{"label": "Yes", "score": 5}, {"label": "No", "score": 0}], "max": 5}], "rai_max": 180, "sai_max": 165}];
+const RAI_GRAND_MAX = 540;
+const SAI_GRAND_MAX = 565;
+
+// Configure this after deploying the Google Apps Script Web App (see ACAII_SRAIS_AppsScript.js)
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyoSGJwLG7XKIIPyfJB6p0CWFAh76Jk2kK7EenDaX8xblQ95OG_LxmTViJLzpfj-LHUyw/exec";
+
+let currentStage = 0;
+const answers = SRAIS_DATA.map(s => ({
+  rai: s.rai.map(() => (null)),
+  sai: s.sai.map(() => (null)),
+  activities: "", challenges: "", opportunities: ""
+}));
+let meta = { innovator: "", solution: "", respondent: "" };
+let adminKey = '';
+
+// ── ACCESS CODE ──────────────────────────────────────────────────
+function checkAccessCode(){
+  const code = document.getElementById('fAccessCode').value.trim();
+  const notice = document.getElementById('accessNotice');
+  if (!code) { notice.innerHTML = '<div class="notice err">Enter your access code.</div>'; return; }
+  if (!APPS_SCRIPT_URL) { notice.innerHTML = '<div class="notice err">Access codes are not active yet. Contact your administrator.</div>'; return; }
+  notice.innerHTML = '<div class="notice">Checking code...</div>';
+  fetch(`${APPS_SCRIPT_URL}?action=validateCode&code=${encodeURIComponent(code)}`)
+    .then(r => r.json())
+    .then(res => {
+      if (res.valid) {
+        notice.innerHTML = '';
+        document.getElementById('accessCard').classList.add('hidden');
+        document.getElementById('introCard').classList.remove('hidden');
+        document.getElementById('fInnovator').value = res.innovator || '';
+        document.getElementById('fSolution').value = res.solution || '';
+      } else {
+        notice.innerHTML = '<div class="notice err">Access code not recognised. Check the code and try again.</div>';
+      }
+    })
+    .catch(() => { notice.innerHTML = '<div class="notice err">Could not verify the code right now. Try again shortly.</div>'; });
+}
+
+// ── REQUEST ACCESS (self-signup) ───────────────────────────────────
+function showRequestAccess(){
+  document.getElementById('accessCard').classList.add('hidden');
+  document.getElementById('requestAccessCard').classList.remove('hidden');
+}
+function submitAccessRequest(){
+  const innovator = document.getElementById('fReqInnovator').value.trim();
+  const solution = document.getElementById('fReqSolution').value.trim();
+  const email = document.getElementById('fReqEmail').value.trim();
+  const notice = document.getElementById('requestAccessNotice');
+  if (!innovator || !solution) { notice.innerHTML = '<div class="notice err">Innovator name and solution name are required.</div>'; return; }
+  if (!APPS_SCRIPT_URL) { notice.innerHTML = '<div class="notice err">Access requests are not active yet. Contact your administrator.</div>'; return; }
+  notice.innerHTML = '<div class="notice">Requesting a code...</div>';
+  const url = `${APPS_SCRIPT_URL}?action=requestCode&innovator=${encodeURIComponent(innovator)}&solution=${encodeURIComponent(solution)}&email=${encodeURIComponent(email)}`;
+  fetch(url).then(r => r.json()).then(res => {
+    if (!res.ok) { notice.innerHTML = `<div class="notice err">${res.error || 'Could not create a code.'}</div>`; return; }
+    notice.innerHTML = `<div class="notice ok">Your access code is <strong>${res.code}</strong>. Save it now - it will start working once an administrator approves it.</div>`;
+  }).catch(() => { notice.innerHTML = '<div class="notice err">Could not reach the server right now. Try again shortly.</div>'; });
+}
+
+// ── ADMIN ────────────────────────────────────────────────────────
+function showAdminLogin(){
+  document.getElementById('accessCard').classList.add('hidden');
+  document.getElementById('adminLoginCard').classList.remove('hidden');
+}
+function backToAccess(){
+  document.getElementById('adminLoginCard').classList.add('hidden');
+  document.getElementById('adminViewCard').classList.add('hidden');
+  document.getElementById('requestAccessCard').classList.add('hidden');
+  document.getElementById('accessCard').classList.remove('hidden');
+}
+function adminLogin(){
+  adminKey = document.getElementById('fAdminKey').value.trim();
+  const notice = document.getElementById('adminLoginNotice');
+  if (!APPS_SCRIPT_URL) { notice.innerHTML = '<div class="notice err">Admin view requires the backend to be connected.</div>'; return; }
+  notice.innerHTML = '<div class="notice">Loading...</div>';
+  fetch(`${APPS_SCRIPT_URL}?action=adminList&key=${encodeURIComponent(adminKey)}`)
+    .then(r => r.json())
+    .then(res => {
+      if (res.error) { notice.innerHTML = `<div class="notice err">${res.error}</div>`; return; }
+      notice.innerHTML = '';
+      document.getElementById('adminLoginCard').classList.add('hidden');
+      document.getElementById('adminViewCard').classList.remove('hidden');
+      renderAdminTable(res.rows || []);
+    })
+    .catch(() => { notice.innerHTML = '<div class="notice err">Could not load responses right now.</div>'; });
+}
+
+function showAdminTab(tab){
+  ['responses','codes','log','analytics'].forEach(t => {
+    document.getElementById('adminTab-' + t).classList.toggle('hidden', t !== tab);
+    document.getElementById('tabBtn-' + t).classList.toggle('active', t === tab);
+  });
+  if (tab === 'codes') loadAdminCodes();
+  if (tab === 'log') loadAdminLog();
+  if (tab === 'analytics') loadAdminAnalytics();
+}
+
+function renderAdminTable(rows){
+  const wrap = document.getElementById('adminTableWrap');
+  if (!rows.length) { wrap.innerHTML = '<div class="notice">No responses yet.</div>'; return; }
+  let html = '<table><thead><tr><th>Date</th><th>Innovator</th><th>Solution</th><th>Respondent</th><th>RAI %</th><th>SAI %</th><th></th><th></th></tr></thead><tbody>';
+  rows.forEach(r => {
+    html += `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td><td>${r[5]}</td>`
+      + `<td><button onclick="viewDetail('${encodeURIComponent(r[0])}','${encodeURIComponent(r[1])}')">View</button></td>`
+      + `<td><button onclick="deleteSubmission('${encodeURIComponent(r[0])}','${encodeURIComponent(r[1])}')">Delete</button></td></tr>`;
+  });
+  html += '</tbody></table><div id="adminDetailWrap"></div>';
+  wrap.innerHTML = html;
+}
+function viewDetail(ts, innovator){
+  const wrap = document.getElementById('adminDetailWrap');
+  wrap.innerHTML = '<div class="notice">Loading detail...</div>';
+  fetch(`${APPS_SCRIPT_URL}?action=adminDetail&key=${encodeURIComponent(adminKey)}&timestamp=${ts}&innovator=${innovator}`)
+    .then(r => r.json())
+    .then(res => {
+      if (res.error) { wrap.innerHTML = `<div class="notice err">${res.error}</div>`; return; }
+      let html = '<table><thead><tr><th>Stage</th><th>Type</th><th>Principle</th><th>Question</th><th>Response</th><th>Score</th></tr></thead><tbody>';
+      (res.rows || []).forEach(r => { html += `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td><td>${r[5]}</td></tr>`; });
+      html += '</tbody></table>';
+      wrap.innerHTML = html;
+    })
+    .catch(() => { wrap.innerHTML = '<div class="notice err">Could not load detail.</div>'; });
+}
+function deleteSubmission(ts, innovator){
+  if (!confirm('Delete this submission and all of its responses? This cannot be undone.')) return;
+  fetch(`${APPS_SCRIPT_URL}?action=adminDeleteSubmission&key=${encodeURIComponent(adminKey)}&timestamp=${ts}&innovator=${innovator}`)
+    .then(r => r.json())
+    .then(() => {
+      fetch(`${APPS_SCRIPT_URL}?action=adminList&key=${encodeURIComponent(adminKey)}`)
+        .then(r => r.json())
+        .then(res => renderAdminTable(res.rows || []));
+    })
+    .catch(() => { alert('Could not delete the submission right now.'); });
+}
+
+// ── ADMIN: ACCESS CODES ─────────────────────────────────────────
+function loadAdminCodes(){
+  const wrap = document.getElementById('adminCodesWrap');
+  wrap.innerHTML = '<div class="notice">Loading codes...</div>';
+  fetch(`${APPS_SCRIPT_URL}?action=adminListCodes&key=${encodeURIComponent(adminKey)}`)
+    .then(r => r.json())
+    .then(res => {
+      if (res.error) { wrap.innerHTML = `<div class="notice err">${res.error}</div>`; return; }
+      renderCodesTable(res.rows || []);
+    })
+    .catch(() => { wrap.innerHTML = '<div class="notice err">Could not load access codes.</div>'; });
+}
+function renderCodesTable(rows){
+  const wrap = document.getElementById('adminCodesWrap');
+  if (!rows.length) { wrap.innerHTML = '<div class="notice">No access codes yet.</div>'; return; }
+  let html = '<table><thead><tr><th>Code</th><th>Innovator</th><th>Solution</th><th>Active</th><th>Source</th><th>Requested</th><th></th></tr></thead><tbody>';
+  rows.forEach(r => {
+    const [code, innovator, solution, active, source, requested] = r;
+    const isActive = String(active).toUpperCase() === 'TRUE';
+    html += `<tr><td>${code}</td><td>${innovator}</td><td>${solution}</td><td>${isActive ? 'Active' : 'Pending / Inactive'}</td><td>${source || ''}</td><td>${requested || ''}</td>`
+      + `<td><button onclick="toggleCode('${encodeURIComponent(code)}','${isActive ? 'false' : 'true'}')">${isActive ? 'Deactivate' : 'Approve'}</button></td></tr>`;
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+function toggleCode(code, setActive){
+  fetch(`${APPS_SCRIPT_URL}?action=adminSetCodeActive&key=${encodeURIComponent(adminKey)}&code=${code}&active=${setActive}`)
+    .then(r => r.json())
+    .then(() => loadAdminCodes())
+    .catch(() => { alert('Could not update the code right now.'); });
+}
+function addCode(){
+  const innovator = document.getElementById('fNewCodeInnovator').value.trim();
+  const solution = document.getElementById('fNewCodeSolution').value.trim();
+  const code = document.getElementById('fNewCodeValue').value.trim();
+  const notice = document.getElementById('addCodeNotice');
+  if (!innovator || !solution) { notice.innerHTML = '<div class="notice err">Innovator and solution name are required.</div>'; return; }
+  notice.innerHTML = '<div class="notice">Adding...</div>';
+  fetch(`${APPS_SCRIPT_URL}?action=adminAddCode&key=${encodeURIComponent(adminKey)}&innovator=${encodeURIComponent(innovator)}&solution=${encodeURIComponent(solution)}&code=${encodeURIComponent(code)}`)
+    .then(r => r.json())
+    .then(res => {
+      if (!res.ok) { notice.innerHTML = `<div class="notice err">${res.error || 'Could not add the code.'}</div>`; return; }
+      notice.innerHTML = `<div class="notice ok">Added code ${res.code}, active immediately.</div>`;
+      document.getElementById('fNewCodeInnovator').value = '';
+      document.getElementById('fNewCodeSolution').value = '';
+      document.getElementById('fNewCodeValue').value = '';
+      loadAdminCodes();
+    })
+    .catch(() => { notice.innerHTML = '<div class="notice err">Could not add the code right now.</div>'; });
+}
+
+// ── ADMIN: ACCESS LOG ───────────────────────────────────────────
+function loadAdminLog(){
+  const wrap = document.getElementById('adminLogWrap');
+  wrap.innerHTML = '<div class="notice">Loading log...</div>';
+  fetch(`${APPS_SCRIPT_URL}?action=adminAccessLog&key=${encodeURIComponent(adminKey)}`)
+    .then(r => r.json())
+    .then(res => {
+      if (res.error) { wrap.innerHTML = `<div class="notice err">${res.error}</div>`; return; }
+      const rows = res.rows || [];
+      if (!rows.length) { wrap.innerHTML = '<div class="notice">No access attempts logged yet.</div>'; return; }
+      let html = '<table><thead><tr><th>Timestamp</th><th>Code</th><th>Result</th><th>Innovator</th></tr></thead><tbody>';
+      rows.forEach(r => { html += `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`; });
+      html += '</tbody></table>';
+      wrap.innerHTML = html;
+    })
+    .catch(() => { wrap.innerHTML = '<div class="notice err">Could not load the access log.</div>'; });
+}
+
+// ── ADMIN: ANALYTICS ─────────────────────────────────────────────
+function loadAdminAnalytics(){
+  const wrap = document.getElementById('adminAnalyticsWrap');
+  wrap.innerHTML = '<div class="notice">Loading analytics...</div>';
+  fetch(`${APPS_SCRIPT_URL}?action=adminList&key=${encodeURIComponent(adminKey)}`)
+    .then(r => r.json())
+    .then(res => {
+      if (res.error) { wrap.innerHTML = `<div class="notice err">${res.error}</div>`; return; }
+      renderAnalytics(res.rows || []);
+    })
+    .catch(() => { wrap.innerHTML = '<div class="notice err">Could not load analytics.</div>'; });
+}
+function renderAnalytics(rows){
+  const wrap = document.getElementById('adminAnalyticsWrap');
+  if (!rows.length) { wrap.innerHTML = '<div class="notice">No responses yet.</div>'; return; }
+  const raiVals = rows.map(r => parseFloat(r[4]) || 0);
+  const saiVals = rows.map(r => parseFloat(r[5]) || 0);
+  const avg = arr => arr.reduce((a,b) => a+b, 0) / arr.length;
+  let html = '<div class="summary-box">'
+    + `<div class="stat-tile"><div class="label">Total responses</div><div class="value">${rows.length}</div></div>`
+    + `<div class="stat-tile"><div class="label">Average RAI %</div><div class="value">${avg(raiVals).toFixed(1)}%</div></div>`
+    + `<div class="stat-tile"><div class="label">Average SAI %</div><div class="value">${avg(saiVals).toFixed(1)}%</div></div>`
+    + `<div class="stat-tile"><div class="label">Lowest RAI %</div><div class="value">${Math.min(...raiVals).toFixed(1)}%</div></div>`
+    + `<div class="stat-tile"><div class="label">Highest RAI %</div><div class="value">${Math.max(...raiVals).toFixed(1)}%</div></div>`
+    + '</div>';
+  html += '<div class="qgroup-title">By Innovator</div>';
+  rows.forEach(r => {
+    const rai = parseFloat(r[4]) || 0;
+    const sai = parseFloat(r[5]) || 0;
+    html += `<div class="bar-row"><div class="bar-label">${r[1]} - RAI</div><div class="bar-track"><div class="bar-fill" style="width:${rai}%"></div></div><div class="bar-value">${rai.toFixed(0)}%</div></div>`;
+    html += `<div class="bar-row"><div class="bar-label">${r[1]} - SAI</div><div class="bar-track"><div class="bar-fill sai" style="width:${sai}%"></div></div><div class="bar-value">${sai.toFixed(0)}%</div></div>`;
+  });
+  wrap.innerHTML = html;
+}
+
+// ── ASSESSMENT ───────────────────────────────────────────────────
+function startAssessment(){
+  meta.innovator = document.getElementById('fInnovator').value.trim();
+  meta.solution = document.getElementById('fSolution').value.trim();
+  meta.respondent = document.getElementById('fRespondent').value.trim();
+  document.getElementById('respondentTag').textContent = meta.innovator ? (meta.innovator + " - " + meta.solution) : "";
+  document.getElementById('introCard').classList.add('hidden');
+  document.getElementById('assessmentArea').classList.remove('hidden');
+  renderStage();
+}
+
+function stageRaiScore(i){
+  const s = SRAIS_DATA[i], a = answers[i];
+  let total = 0;
+  s.rai.forEach((q, qi) => {
+    const v = a.rai[qi];
+    if (v == null) return;
+    if (q.type === 'multi') total += (v || []).reduce((sum, oi) => sum + q.options[oi].score, 0);
+    else total += q.options[v].score;
+  });
+  return total;
+}
+function stageSaiScore(i){
+  const s = SRAIS_DATA[i], a = answers[i];
+  let total = 0;
+  s.sai.forEach((q, qi) => {
+    const v = a.sai[qi];
+    if (v == null) return;
+    if (q.type === 'multi') total += (v || []).reduce((sum, oi) => sum + q.options[oi].score, 0);
+    else total += q.options[v].score;
+  });
+  return total;
+}
+function cumulativeThrough(i, kind){
+  let total = 0;
+  for (let k = 0; k <= i; k++) total += (kind === 'rai' ? stageRaiScore(k) : stageSaiScore(k));
+  return total;
+}
+
+function unansweredCount(i){
+  const s = SRAIS_DATA[i], a = answers[i];
+  let n = 0;
+  s.rai.forEach((q, qi) => {
+    const v = a.rai[qi];
+    const answered = q.type === 'multi' ? (Array.isArray(v) && v.length > 0) : (v != null);
+    if (!answered) n++;
+  });
+  s.sai.forEach((q, qi) => {
+    const v = a.sai[qi];
+    const answered = q.type === 'multi' ? (Array.isArray(v) && v.length > 0) : (v != null);
+    if (!answered) n++;
+  });
+  return n;
+}
+function stageComplete(i){ return unansweredCount(i) === 0; }
+
+function renderQuestion(container, stageIdx, kind, qi, q){
+  const block = document.createElement('div');
+  block.className = 'q-block';
+  const principle = q.principle ? `<div class="principle">${q.principle}</div>` : '';
+  block.innerHTML = `${principle}<div class="q-text">${q.question}</div>`;
+  const optList = document.createElement('div');
+  optList.className = 'opt-list';
+  q.options.forEach((opt, oi) => {
+    const label = document.createElement('label');
+    label.className = 'opt';
+    const input = document.createElement('input');
+    input.type = q.type === 'multi' ? 'checkbox' : 'radio';
+    input.name = `${kind}-${stageIdx}-${qi}`;
+    const current = answers[stageIdx][kind][qi];
+    if (q.type === 'multi') {
+      input.checked = Array.isArray(current) && current.includes(oi);
+    } else {
+      input.checked = current === oi;
+    }
+    if (input.checked) label.classList.add('checked');
+    input.addEventListener('change', () => {
+      if (q.type === 'multi') {
+        let arr = Array.isArray(answers[stageIdx][kind][qi]) ? answers[stageIdx][kind][qi].slice() : [];
+        if (input.checked) { if (!arr.includes(oi)) arr.push(oi); } else { arr = arr.filter(x => x !== oi); }
+        answers[stageIdx][kind][qi] = arr;
+      } else {
+        answers[stageIdx][kind][qi] = oi;
+      }
+      renderStage();
+    });
+    label.appendChild(input);
+    label.appendChild(document.createTextNode(opt.label));
+    optList.appendChild(label);
+  });
+  block.appendChild(optList);
+  container.appendChild(block);
+}
+
+function renderStage(){
+  const s = SRAIS_DATA[currentStage];
+  document.getElementById('stageLabel').textContent = `Stage ${currentStage + 1} of ${SRAIS_DATA.length}`;
+  document.getElementById('stageTitle').textContent = s.stage;
+  document.getElementById('stageNavLabel').textContent = s.stage;
+  document.getElementById('stageNavCount').textContent = `${s.rai.length} RAI questions, ${s.sai.length} SAI questions`;
+
+  const stepper = document.getElementById('stepper');
+  stepper.innerHTML = '';
+  SRAIS_DATA.forEach((st, i) => {
+    const seg = document.createElement('div');
+    seg.className = 'step-seg' + (i < currentStage ? ' done' : (i === currentStage ? ' active' : ''));
+    stepper.appendChild(seg);
+  });
+
+  const raiC = document.getElementById('raiQuestions'); raiC.innerHTML = '';
+  s.rai.forEach((q, qi) => renderQuestion(raiC, currentStage, 'rai', qi, q));
+  const saiC = document.getElementById('saiQuestions'); saiC.innerHTML = '';
+  s.sai.forEach((q, qi) => renderQuestion(saiC, currentStage, 'sai', qi, q));
+
+  document.getElementById('fActivities').value = answers[currentStage].activities;
+  document.getElementById('fChallenges').value = answers[currentStage].challenges;
+  document.getElementById('fOpportunities').value = answers[currentStage].opportunities;
+
+  const raiScore = stageRaiScore(currentStage);
+  const saiScore = stageSaiScore(currentStage);
+  document.getElementById('stageRaiScore').textContent = raiScore;
+  document.getElementById('stageRaiOf').textContent = `of ${s.rai_max} possible this stage`;
+  document.getElementById('stageSaiScore').textContent = saiScore;
+  document.getElementById('stageSaiOf').textContent = `of ${s.sai_max} possible this stage`;
+
+  const cumRai = cumulativeThrough(currentStage, 'rai');
+  const cumSai = cumulativeThrough(currentStage, 'sai');
+  document.getElementById('cumRaiPct').textContent = ((cumRai / RAI_GRAND_MAX) * 100).toFixed(1) + '%';
+  document.getElementById('cumSaiPct').textContent = ((cumSai / SAI_GRAND_MAX) * 100).toFixed(1) + '%';
+
+  document.getElementById('btnBack').disabled = currentStage === 0;
+  document.getElementById('btnNext').textContent = currentStage === SRAIS_DATA.length - 1 ? 'Finish' : 'Next Stage';
+
+  const remaining = unansweredCount(currentStage);
+  const notice = document.getElementById('incompleteNotice');
+  if (remaining > 0) {
+    notice.innerHTML = `<div class="notice">${remaining} question${remaining === 1 ? '' : 's'} still need${remaining === 1 ? 's' : ''} an answer before you can continue.</div>`;
+    document.getElementById('btnNext').disabled = true;
+  } else {
+    notice.innerHTML = '';
+    document.getElementById('btnNext').disabled = false;
+  }
+}
+
+function saveStageText(){
+  answers[currentStage].activities = document.getElementById('fActivities').value;
+  answers[currentStage].challenges = document.getElementById('fChallenges').value;
+  answers[currentStage].opportunities = document.getElementById('fOpportunities').value;
+}
+
+function nextStage(){
+  saveStageText();
+  if (!stageComplete(currentStage)) { renderStage(); return; }
+  if (currentStage < SRAIS_DATA.length - 1) {
+    currentStage++;
+    renderStage();
+    window.scrollTo(0,0);
+  } else {
+    showFinal();
+  }
+}
+function prevStage(){
+  saveStageText();
+  if (currentStage > 0) { currentStage--; renderStage(); window.scrollTo(0,0); }
+}
+
+function showFinal(){
+  document.getElementById('assessmentArea').classList.add('hidden');
+  document.getElementById('finalArea').classList.remove('hidden');
+  const tbody = document.querySelector('#finalTable tbody');
+  tbody.innerHTML = '';
+  SRAIS_DATA.forEach((s, i) => {
+    const cumRai = cumulativeThrough(i, 'rai');
+    const cumSai = cumulativeThrough(i, 'sai');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${s.stage}</td><td>${stageRaiScore(i)}</td><td>${((cumRai/RAI_GRAND_MAX)*100).toFixed(1)}%</td><td>${stageSaiScore(i)}</td><td>${((cumSai/SAI_GRAND_MAX)*100).toFixed(1)}%</td>`;
+    tbody.appendChild(tr);
+  });
+  const finalRai = cumulativeThrough(SRAIS_DATA.length - 1, 'rai');
+  const finalSai = cumulativeThrough(SRAIS_DATA.length - 1, 'sai');
+  document.getElementById('finalRai').textContent = ((finalRai/RAI_GRAND_MAX)*100).toFixed(1) + '%';
+  document.getElementById('finalSai').textContent = ((finalSai/SAI_GRAND_MAX)*100).toFixed(1) + '%';
+}
+
+function buildFlatRows(){
+  const rows = [];
+  rows.push(['Innovator', meta.innovator, 'Solution', meta.solution, 'Respondent', meta.respondent, 'Date', new Date().toISOString()]);
+  rows.push([]);
+  rows.push(['Stage','Type','Principle','Question','Response','Score']);
+  SRAIS_DATA.forEach((s, i) => {
+    s.rai.forEach((q, qi) => {
+      const v = answers[i].rai[qi];
+      let label = '', score = 0;
+      if (v == null) { label = ''; score = 0; }
+      else if (q.type === 'multi') { label = v.map(oi => q.options[oi].label).join('; '); score = v.reduce((sum,oi)=>sum+q.options[oi].score,0); }
+      else { label = q.options[v].label; score = q.options[v].score; }
+      rows.push([s.stage, 'RAI', q.principle, q.question, label, score]);
+    });
+    s.sai.forEach((q, qi) => {
+      const v = answers[i].sai[qi];
+      let label = '', score = 0;
+      if (v == null) { label = ''; score = 0; }
+      else if (q.type === 'multi') { label = v.map(oi => q.options[oi].label).join('; '); score = v.reduce((sum,oi)=>sum+q.options[oi].score,0); }
+      else { label = q.options[v].label; score = q.options[v].score; }
+      rows.push([s.stage, 'SAI', '', q.question, label, score]);
+    });
+    rows.push([s.stage, 'STAGE SUBTOTAL', '', 'RAI subtotal / SAI subtotal', stageRaiScore(i), stageSaiScore(i)]);
+    rows.push([s.stage, 'CUMULATIVE %', '', 'RAI% / SAI% of grand total', ((cumulativeThrough(i,'rai')/RAI_GRAND_MAX)*100).toFixed(1)+'%', ((cumulativeThrough(i,'sai')/SAI_GRAND_MAX)*100).toFixed(1)+'%']);
+    rows.push([s.stage, 'NOTES', 'Activities', answers[i].activities, '', '']);
+    rows.push([s.stage, 'NOTES', 'Challenges', answers[i].challenges, '', '']);
+    rows.push([s.stage, 'NOTES', 'Opportunities', answers[i].opportunities, '', '']);
+  });
+  return rows;
+}
+
+function downloadExcel(){
+  const rows = buildFlatRows();
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'SRAIS Responses');
+  const fname = `SRAIS_${(meta.innovator || 'response').replace(/[^a-z0-9]+/gi,'_')}_${Date.now()}.xlsx`;
+  XLSX.writeFile(wb, fname);
+}
+
+function submitResponses(){
+  const notice = document.getElementById('submitNotice');
+  if (!APPS_SCRIPT_URL) {
+    notice.innerHTML = '<div class="notice err">No submission endpoint configured yet. Use "Download as Excel" to save this response, or set APPS_SCRIPT_URL in this file once the Google Apps Script Web App is deployed (see ACAII_SRAIS_AppsScript.js).</div>';
+    return;
+  }
+  const payload = {
+    innovator: meta.innovator, solution: meta.solution, respondent: meta.respondent,
+    date: new Date().toISOString(),
+    finalRaiPct: ((cumulativeThrough(SRAIS_DATA.length-1,'rai')/RAI_GRAND_MAX)*100).toFixed(1),
+    finalSaiPct: ((cumulativeThrough(SRAIS_DATA.length-1,'sai')/SAI_GRAND_MAX)*100).toFixed(1),
+    rows: buildFlatRows()
+  };
+  notice.innerHTML = '<div class="notice">Submitting...</div>';
+  fetch(APPS_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: {'Content-Type':'text/plain'}, body: JSON.stringify(payload) })
+    .then(() => { notice.innerHTML = '<div class="notice ok">Submitted. Your responses have been recorded.</div>'; })
+    .catch(() => { notice.innerHTML = '<div class="notice err">Submission failed. Please use "Download as Excel" and send the file manually.</div>'; });
+}
+</script>
+</body>
+</html>

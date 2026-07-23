@@ -58,8 +58,12 @@ body{font-family:'Segoe UI',system-ui,-apple-system,Arial,sans-serif;background:
 .opt:active{transform:scale(.98)}
 .opt input{margin:0;accent-color:var(--blue)}
 .opt.checked{border-color:var(--blue);background:#EFF6FF;font-weight:700;color:var(--blue-dark)}
-textarea{width:100%;border:1.5px solid var(--border);border-radius:var(--radius-xs);padding:11px 13px;font-size:13px;font-family:inherit;resize:vertical;min-height:70px;transition:border-color .15s,box-shadow .15s}
-textarea:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+textarea,input[type="text"],input[type="email"],input[type="password"]{width:100%;border:1.5px solid var(--border);border-radius:var(--radius-xs);padding:11px 13px;font-size:13px;font-family:inherit;transition:border-color .15s,box-shadow .15s;background:var(--white);color:var(--text)}
+textarea{resize:vertical;min-height:70px}
+input[type="text"],input[type="email"],input[type="password"]{height:42px}
+textarea:focus,input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+.divider{display:flex;align-items:center;gap:12px;margin:18px 0;color:var(--muted);font-size:11.5px;text-transform:uppercase;letter-spacing:.5px}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border)}
 label.field-label{display:block;font-size:12px;font-weight:700;color:var(--navy);margin:16px 0 7px;letter-spacing:.1px}
 .btn-row{display:flex;justify-content:space-between;margin-top:24px;gap:10px}
 button{font-family:inherit;font-size:13.5px;font-weight:600;padding:11px 22px;border-radius:var(--radius-xs);border:1.5px solid var(--border);background:var(--white);color:var(--text);cursor:pointer;transition:all .15s}
@@ -120,50 +124,50 @@ footer{text-align:center;font-size:11.5px;color:var(--muted);padding:30px 0}
 <div class="container">
 
   <div class="card narrow" id="accessCard">
-    <div class="sec-label">Access</div>
-    <div class="sec-title">Enter Your Access Code</div>
-    <div class="sec-desc">Do not have a code yet? Use "Request Access" below.</div>
-    <label class="field-label">Access Code</label>
-    <textarea id="fAccessCode" style="min-height:34px"></textarea>
-    <div id="accessNotice"></div>
-    <div class="btn-row">
-      <button onclick="showAdminLogin()">Admin</button>
-      <button class="primary" onclick="checkAccessCode()">Continue</button>
-    </div>
-    <div class="btn-row" style="margin-top:8px">
-      <button onclick="showRequestAccess()" style="width:100%">Request Access</button>
-      <span></span>
-    </div>
+    <div class="sec-label">Get Started</div>
+    <div class="sec-title">Enter Your Email</div>
+    <div class="sec-desc">We will email you a one-time access code to log in and start the assessment.</div>
+    <form onsubmit="submitAccessRequest(); return false;">
+      <label class="field-label">Email Address</label>
+      <input type="email" id="fReqEmail" placeholder="you@example.com" required autofocus>
+      <div id="requestAccessNotice"></div>
+      <div class="btn-row">
+        <button type="button" onclick="showAdminLogin()">Admin</button>
+        <button type="submit" class="primary">Email My Access Code</button>
+      </div>
+    </form>
+    <div class="divider"><span>or</span></div>
+    <button onclick="showCodeEntry()" style="width:100%">Already have a code? Enter it</button>
   </div>
 
-  <div class="card narrow hidden" id="requestAccessCard">
+  <div class="card narrow hidden" id="codeEntryCard">
     <div class="sec-label">Access</div>
-    <div class="sec-title">Request an Access Code</div>
-    <div class="sec-desc">A code is generated for you immediately and works right away - no waiting for approval. It will also be emailed to you if you provide an address, so keep a copy either way.</div>
-    <label class="field-label">Innovator / Organisation Name</label>
-    <textarea id="fReqInnovator" style="min-height:34px"></textarea>
-    <label class="field-label">AI Solution Name</label>
-    <textarea id="fReqSolution" style="min-height:34px"></textarea>
-    <label class="field-label">Contact Email</label>
-    <textarea id="fReqEmail" style="min-height:34px"></textarea>
-    <div id="requestAccessNotice"></div>
-    <div class="btn-row">
-      <button onclick="backToAccess()">Back</button>
-      <button class="primary" onclick="submitAccessRequest()">Request Code</button>
-    </div>
+    <div class="sec-title">Enter Your Access Code</div>
+    <div class="sec-desc">Check your email for the code we sent you.</div>
+    <form onsubmit="checkAccessCode(); return false;">
+      <label class="field-label">Access Code</label>
+      <input type="text" id="fAccessCode" placeholder="SRAIS-XXXXXX" autofocus>
+      <div id="accessNotice"></div>
+      <div class="btn-row">
+        <button type="button" onclick="backToAccess()">Back</button>
+        <button type="submit" class="primary">Continue</button>
+      </div>
+    </form>
   </div>
 
   <div class="card narrow hidden" id="adminLoginCard">
     <div class="sec-label">Admin</div>
     <div class="sec-title">Admin Login</div>
     <div class="sec-desc">Enter the admin password to manage the tool.</div>
-    <label class="field-label">Admin Password</label>
-    <textarea id="fAdminKey" style="min-height:34px"></textarea>
-    <div id="adminLoginNotice"></div>
-    <div class="btn-row">
-      <button onclick="backToAccess()">Back</button>
-      <button class="primary" onclick="adminLogin()">Enter Admin View</button>
-    </div>
+    <form onsubmit="adminLogin(); return false;">
+      <label class="field-label">Admin Password</label>
+      <input type="password" id="fAdminKey" autofocus>
+      <div id="adminLoginNotice"></div>
+      <div class="btn-row">
+        <button type="button" onclick="backToAccess()">Back</button>
+        <button type="submit" class="primary">Enter Admin View</button>
+      </div>
+    </form>
   </div>
 
   <div class="card hidden" id="adminViewCard">
@@ -184,17 +188,19 @@ footer{text-align:center;font-size:11.5px;color:var(--muted);padding:30px 0}
       <div class="sec-desc">Self-signup codes are active immediately. Deactivate a code here to revoke access, or add a new code directly.</div>
       <div id="adminCodesWrap"></div>
       <div class="qgroup-title">Add a Code Directly</div>
-      <label class="field-label">Innovator / Organisation Name</label>
-      <textarea id="fNewCodeInnovator" style="min-height:34px"></textarea>
-      <label class="field-label">AI Solution Name</label>
-      <textarea id="fNewCodeSolution" style="min-height:34px"></textarea>
-      <label class="field-label">Code (leave blank to auto-generate)</label>
-      <textarea id="fNewCodeValue" style="min-height:34px"></textarea>
-      <div id="addCodeNotice"></div>
-      <div class="btn-row">
-        <span></span>
-        <button class="primary" onclick="addCode()">Add Code (Active)</button>
-      </div>
+      <form onsubmit="addCode(); return false;">
+        <label class="field-label">Innovator / Organisation Name</label>
+        <input type="text" id="fNewCodeInnovator">
+        <label class="field-label">AI Solution Name</label>
+        <input type="text" id="fNewCodeSolution">
+        <label class="field-label">Code (leave blank to auto-generate)</label>
+        <input type="text" id="fNewCodeValue">
+        <div id="addCodeNotice"></div>
+        <div class="btn-row">
+          <span></span>
+          <button type="submit" class="primary">Add Code (Active)</button>
+        </div>
+      </form>
     </div>
 
     <div id="adminTab-log" class="admin-tab hidden">
@@ -216,16 +222,18 @@ footer{text-align:center;font-size:11.5px;color:var(--muted);padding:30px 0}
     <div class="sec-label">Before you start</div>
     <div class="sec-title">Innovator and Solution Details</div>
     <div class="sec-desc">This assessment scores your AI solution on two parallel dimensions at every stage of development: Responsible AI (RAI) compliance and Scalability (SAI). Complete each stage in order. Your cumulative score is shown after every stage.</div>
-    <label class="field-label">Innovator / Organisation Name</label>
-    <textarea id="fInnovator" style="min-height:34px"></textarea>
-    <label class="field-label">AI Solution Name</label>
-    <textarea id="fSolution" style="min-height:34px"></textarea>
-    <label class="field-label">Respondent Name and Role</label>
-    <textarea id="fRespondent" style="min-height:34px"></textarea>
-    <div class="btn-row">
-      <span></span>
-      <button class="primary" onclick="startAssessment()">Start Assessment</button>
-    </div>
+    <form onsubmit="startAssessment(); return false;">
+      <label class="field-label">Innovator / Organisation Name</label>
+      <input type="text" id="fInnovator" autofocus>
+      <label class="field-label">AI Solution Name</label>
+      <input type="text" id="fSolution">
+      <label class="field-label">Respondent Name and Role</label>
+      <input type="text" id="fRespondent">
+      <div class="btn-row">
+        <span></span>
+        <button type="submit" class="primary">Start Assessment</button>
+      </div>
+    </form>
   </div>
 
   <div id="assessmentArea" class="hidden">
@@ -240,7 +248,7 @@ footer{text-align:center;font-size:11.5px;color:var(--muted);padding:30px 0}
       <span id="stageNavCount"></span>
     </div>
 
-    <div class="card">
+    <div class="card" id="stageCard">
       <div class="sec-label" id="stageLabel"></div>
       <div class="sec-title" id="stageTitle"></div>
       <div class="sec-desc">Answer the Responsible AI (RAI) questions and the Scalability (SAI) questions for this stage. Both are scored independently.</div>
@@ -343,7 +351,29 @@ const answers = SRAIS_DATA.map(s => ({
 let meta = { innovator: "", solution: "", respondent: "" };
 let adminKey = '';
 
-// ── ACCESS CODE ──────────────────────────────────────────────────
+// ── ACCESS: EMAIL FIRST ─────────────────────────────────────────
+function submitAccessRequest(){
+  const email = document.getElementById('fReqEmail').value.trim();
+  const notice = document.getElementById('requestAccessNotice');
+  if (!email) { notice.innerHTML = '<div class="notice err">Enter your email address.</div>'; return; }
+  if (!APPS_SCRIPT_URL) { notice.innerHTML = '<div class="notice err">Access requests are not active yet. Contact your administrator.</div>'; return; }
+  notice.innerHTML = '<div class="notice">Sending your code...</div>';
+  const url = `${APPS_SCRIPT_URL}?action=requestCode&email=${encodeURIComponent(email)}`;
+  fetch(url).then(r => r.json()).then(res => {
+    if (!res.ok) { notice.innerHTML = `<div class="notice err">${res.error || 'Could not create a code.'}</div>`; return; }
+    const emailNote = res.emailed ? `We have sent it to <strong>${email}</strong>.` : 'We could not send the email right now, but your code is shown below.';
+    notice.innerHTML = `<div class="notice ok">Your access code is <strong>${res.code}</strong>. ${emailNote}</div>`;
+    showCodeEntry();
+    document.getElementById('fAccessCode').value = res.code;
+  }).catch(() => { notice.innerHTML = '<div class="notice err">Could not reach the server right now. Try again shortly.</div>'; });
+}
+
+function showCodeEntry(){
+  document.getElementById('accessCard').classList.add('hidden');
+  document.getElementById('codeEntryCard').classList.remove('hidden');
+  document.getElementById('fAccessCode').focus();
+}
+
 function checkAccessCode(){
   const code = document.getElementById('fAccessCode').value.trim();
   const notice = document.getElementById('accessNotice');
@@ -355,9 +385,10 @@ function checkAccessCode(){
     .then(res => {
       if (res.valid) {
         notice.innerHTML = '';
-        document.getElementById('accessCard').classList.add('hidden');
+        document.getElementById('codeEntryCard').classList.add('hidden');
         document.getElementById('introCard').classList.remove('hidden');
-        document.getElementById('fInnovator').value = res.innovator || '';
+        document.getElementById('fInnovator').focus();
+        document.getElementById('fInnovator').value = (res.innovator && res.innovator.includes('@')) ? '' : (res.innovator || '');
         document.getElementById('fSolution').value = res.solution || '';
       } else {
         notice.innerHTML = '<div class="notice err">Access code not recognised. Check the code and try again.</div>';
@@ -366,36 +397,17 @@ function checkAccessCode(){
     .catch(() => { notice.innerHTML = '<div class="notice err">Could not verify the code right now. Try again shortly.</div>'; });
 }
 
-// ── REQUEST ACCESS (self-signup) ───────────────────────────────────
-function showRequestAccess(){
-  document.getElementById('accessCard').classList.add('hidden');
-  document.getElementById('requestAccessCard').classList.remove('hidden');
-}
-function submitAccessRequest(){
-  const innovator = document.getElementById('fReqInnovator').value.trim();
-  const solution = document.getElementById('fReqSolution').value.trim();
-  const email = document.getElementById('fReqEmail').value.trim();
-  const notice = document.getElementById('requestAccessNotice');
-  if (!innovator || !solution) { notice.innerHTML = '<div class="notice err">Innovator name and solution name are required.</div>'; return; }
-  if (!APPS_SCRIPT_URL) { notice.innerHTML = '<div class="notice err">Access requests are not active yet. Contact your administrator.</div>'; return; }
-  notice.innerHTML = '<div class="notice">Requesting a code...</div>';
-  const url = `${APPS_SCRIPT_URL}?action=requestCode&innovator=${encodeURIComponent(innovator)}&solution=${encodeURIComponent(solution)}&email=${encodeURIComponent(email)}`;
-  fetch(url).then(r => r.json()).then(res => {
-    if (!res.ok) { notice.innerHTML = `<div class="notice err">${res.error || 'Could not create a code.'}</div>`; return; }
-    const emailNote = res.emailed ? ' It has also been emailed to you.' : '';
-    notice.innerHTML = `<div class="notice ok">Your access code is <strong>${res.code}</strong> and is ready to use now.${emailNote} <button onclick="backToAccess(); document.getElementById('fAccessCode').value='${res.code}';">Use it now</button></div>`;
-  }).catch(() => { notice.innerHTML = '<div class="notice err">Could not reach the server right now. Try again shortly.</div>'; });
-}
-
 // ── ADMIN ────────────────────────────────────────────────────────
 function showAdminLogin(){
   document.getElementById('accessCard').classList.add('hidden');
+  document.getElementById('codeEntryCard').classList.add('hidden');
   document.getElementById('adminLoginCard').classList.remove('hidden');
+  document.getElementById('fAdminKey').focus();
 }
 function backToAccess(){
   document.getElementById('adminLoginCard').classList.add('hidden');
   document.getElementById('adminViewCard').classList.add('hidden');
-  document.getElementById('requestAccessCard').classList.add('hidden');
+  document.getElementById('codeEntryCard').classList.add('hidden');
   document.getElementById('accessCard').classList.remove('hidden');
 }
 function adminLogin(){
@@ -689,8 +701,16 @@ function renderStage(){
   SRAIS_DATA.forEach((st, i) => {
     const seg = document.createElement('div');
     seg.className = 'step-seg' + (i < currentStage ? ' done' : (i === currentStage ? ' active' : ''));
+    seg.title = st.stage;
+    if (i < currentStage) {
+      seg.style.cursor = 'pointer';
+      seg.addEventListener('click', () => { saveStageText(); currentStage = i; renderStage(); window.scrollTo(0,0); });
+    }
     stepper.appendChild(seg);
   });
+
+  const stageCard = document.getElementById('stageCard');
+  if (stageCard) { stageCard.style.animation = 'none'; void stageCard.offsetWidth; stageCard.style.animation = ''; }
 
   const raiC = document.getElementById('raiQuestions'); raiC.innerHTML = '';
   s.rai.forEach((q, qi) => renderQuestion(raiC, currentStage, 'rai', qi, q));

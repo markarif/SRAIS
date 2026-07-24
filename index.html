@@ -351,6 +351,9 @@ footer{text-align:center;font-size:11.5px;color:var(--muted);padding:30px 0}
         </div>
       </div>
 
+      <div class="qgroup-title">Responsibility / scalability rubric</div>
+      <svg id="stageRubric" viewBox="0 0 640 380" style="width:100%;height:auto;max-width:520px;display:block;margin:0 auto"></svg>
+
       <div id="incompleteNotice"></div>
       <div class="btn-row">
         <button id="btnBack" onclick="prevStage()">Back</button>
@@ -380,6 +383,10 @@ footer{text-align:center;font-size:11.5px;color:var(--muted);padding:30px 0}
           <div class="sub">of 565 points possible</div>
         </div>
       </div>
+
+      <div class="qgroup-title">Responsibility / scalability trajectory across all 5 stages</div>
+      <svg id="finalRubric" viewBox="0 0 640 380" style="width:100%;height:auto;max-width:560px;display:block;margin:0 auto"></svg>
+
       <div id="submitNotice"></div>
       <div class="btn-row">
         <button onclick="downloadExcel()">Download as Excel</button>
@@ -1096,6 +1103,53 @@ function cumulativeThrough(i, kind){
   return total;
 }
 
+// Renders the responsibility/scalability/stage rubric: a nested-cube plot
+// where each stage gets its own progressively larger box, and a point is
+// plotted inside it at (cumulative SAI%, cumulative RAI%) reached by that
+// point in the assessment. upToStageIdx controls how many points are shown -
+// used to make the rubric visibly build up one point per completed stage.
+function renderRubricSvg(svgId, upToStageIdx){
+  const svg = document.getElementById(svgId);
+  if (!svg) return;
+  const originX = 90, originY = 340, scaleX = 2.3, scaleY = 2.3, skewX = 22, skewY = 20;
+  const project = (sai, rai, depth) => [originX + sai*scaleX + depth*skewX, originY - rai*scaleY - depth*skewY];
+  const cubeAt = (depth, size) => {
+    const p00 = project(0,0,depth), p10 = project(size,0,depth), p01 = project(0,size,depth), p11 = project(size,size,depth);
+    return `M${p00} L${p10} L${p11} L${p01} Z`;
+  };
+  let s = '';
+  for (let i = 0; i < SRAIS_DATA.length; i++) {
+    const depth = i*34, size = 55 + i*7, active = i <= upToStageIdx;
+    s += `<path d="${cubeAt(depth,size)}" fill="none" stroke="var(--border-strong,var(--border))" stroke-width="${active?1.3:1}" opacity="${active?0.9:0.3}"/>`;
+    const [lx,ly] = project(-8,-2,depth);
+    s += `<text x="${lx}" y="${ly}" font-size="10" fill="${active?'var(--navy)':'var(--muted)'}" text-anchor="end">${SRAIS_DATA[i].stage}</text>`;
+  }
+  const [ax0,ay0] = project(0,0,-6), [ax1,ay1] = project(100,0,-6), [bx1,by1] = project(0,100,-6);
+  s += `<line x1="${ax0}" y1="${ay0}" x2="${ax1}" y2="${ay1}" stroke="var(--muted)" stroke-width="1"/>`;
+  s += `<line x1="${ax0}" y1="${ay0}" x2="${bx1}" y2="${by1}" stroke="var(--muted)" stroke-width="1"/>`;
+  s += `<text x="${ax1+6}" y="${ay1+4}" font-size="11" fill="var(--muted)">Scalability of AI (%)</text>`;
+  s += `<text x="${bx1}" y="${by1-8}" font-size="11" fill="var(--muted)">Responsibility of AI (%)</text>`;
+
+  let path = '';
+  for (let i = 0; i <= upToStageIdx; i++) {
+    const raiPct = (cumulativeThrough(i,'rai')/RAI_GRAND_MAX)*100;
+    const saiPct = (cumulativeThrough(i,'sai')/SAI_GRAND_MAX)*100;
+    const [px,py] = project(saiPct, raiPct, i*34);
+    path += (i===0?'M':'L') + px + ',' + py + ' ';
+  }
+  if (upToStageIdx > 0) s += `<path d="${path}" fill="none" stroke="var(--blue)" stroke-width="1" stroke-dasharray="3,3"/>`;
+
+  for (let i = 0; i <= upToStageIdx; i++) {
+    const raiPct = (cumulativeThrough(i,'rai')/RAI_GRAND_MAX)*100;
+    const saiPct = (cumulativeThrough(i,'sai')/SAI_GRAND_MAX)*100;
+    const [px,py] = project(saiPct, raiPct, i*34);
+    const isLast = i === upToStageIdx;
+    s += `<circle cx="${px}" cy="${py}" r="${isLast?6:4}" fill="var(--blue)" stroke="var(--white)" stroke-width="1.5"/>`;
+    if (isLast) s += `<text x="${px+9}" y="${py-8}" font-size="10.5" font-weight="700" fill="var(--navy)">RAI ${raiPct.toFixed(0)}% / SAI ${saiPct.toFixed(0)}%</text>`;
+  }
+  svg.innerHTML = s;
+}
+
 function unansweredCount(i){
   const s = SRAIS_DATA[i], a = answers[i];
   let n = 0;
@@ -1238,6 +1292,7 @@ function renderStage(){
   document.getElementById('cumSaiPct').textContent = saiPct.toFixed(1) + '%';
   document.getElementById('cumRaiPct').closest('.summary-tile').className = 'summary-tile ' + scoreClass(raiPct);
   document.getElementById('cumSaiPct').closest('.summary-tile').className = 'summary-tile ' + scoreClass(saiPct);
+  renderRubricSvg('stageRubric', currentStage);
 
   const totalQ = totalQuestionCount();
   const answeredQ = answeredQuestionCount();
@@ -1302,6 +1357,7 @@ function showFinal(){
   document.getElementById('finalSai').textContent = finalSaiPct.toFixed(1) + '%';
   document.getElementById('finalRai').closest('.summary-tile').className = 'summary-tile ' + scoreClass(finalRaiPct);
   document.getElementById('finalSai').closest('.summary-tile').className = 'summary-tile ' + scoreClass(finalSaiPct);
+  renderRubricSvg('finalRubric', SRAIS_DATA.length - 1);
 }
 
 function buildFlatRows(){

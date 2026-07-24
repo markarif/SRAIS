@@ -149,14 +149,14 @@ footer{text-align:center;font-size:11.5px;color:var(--muted);padding:30px 0}
   <div class="card narrow" id="accessCard">
     <div class="sec-label">Get Started</div>
     <div class="sec-title">Enter Your Email</div>
-    <div class="sec-desc">We will email you a one-time access code to log in and start the assessment.</div>
-    <form onsubmit="submitAccessRequest(); return false;">
+    <div class="sec-desc">If you already have a code for this email, we'll show it to you. First time here? We'll email you a new one-time access code.</div>
+    <form onsubmit="startEmailLookup(); return false;">
       <label class="field-label">Email Address</label>
       <input type="email" id="fReqEmail" placeholder="you@example.com" required autofocus>
       <div id="requestAccessNotice"></div>
       <div class="btn-row">
         <button type="button" onclick="showAdminLogin()">Admin</button>
-        <button type="submit" class="primary">Email My Access Code</button>
+        <button type="submit" class="primary">Continue</button>
       </div>
     </form>
     <div class="divider"><span>or</span></div>
@@ -176,6 +176,18 @@ footer{text-align:center;font-size:11.5px;color:var(--muted);padding:30px 0}
         <button type="submit" class="primary">Continue</button>
       </div>
     </form>
+  </div>
+
+  <div class="card narrow hidden" id="myCodesCard">
+    <div class="sec-label">Get Started</div>
+    <div class="sec-title">Your Solutions</div>
+    <div class="sec-desc">This email already has one or more access codes. Log in to an existing one below, or add a code for a new solution.</div>
+    <div id="myCodesWrap"></div>
+    <div id="myCodesNotice"></div>
+    <div class="btn-row">
+      <button type="button" onclick="backToAccess()">Back</button>
+      <button class="primary" onclick="addAnotherSolution()">+ Add a New Solution</button>
+    </div>
   </div>
 
   <div class="card narrow hidden" id="adminLoginCard">
@@ -467,7 +479,7 @@ function logout(){
   const tag = document.getElementById('respondentTag');
   tag.style.display = 'none';
   tag.textContent = '';
-  ['assessmentArea', 'finalArea', 'introCard', 'codeEntryCard', 'adminViewCard', 'adminLoginCard', 'mySubmissionCard', 'editProfileCard'].forEach(id => {
+  ['assessmentArea', 'finalArea', 'introCard', 'codeEntryCard', 'myCodesCard', 'adminViewCard', 'adminLoginCard', 'mySubmissionCard', 'editProfileCard'].forEach(id => {
     document.getElementById(id).classList.add('hidden');
   });
   document.getElementById('fAccessCode').value = '';
@@ -481,24 +493,83 @@ function clearProgress(code){
 }
 
 // ── ACCESS: EMAIL FIRST ─────────────────────────────────────────
-function submitAccessRequest(){
+function startEmailLookup(){
   const email = document.getElementById('fReqEmail').value.trim();
   const notice = document.getElementById('requestAccessNotice');
   if (!email) { notice.innerHTML = '<div class="notice err">Enter your email address.</div>'; return; }
   if (!APPS_SCRIPT_URL) { notice.innerHTML = '<div class="notice err">Access requests are not active yet. Contact your administrator.</div>'; return; }
+  notice.innerHTML = '<div class="notice">Checking...</div>';
+  fetch(`${APPS_SCRIPT_URL}?action=listMyCodes&email=${encodeURIComponent(email)}`)
+    .then(r => r.json())
+    .then(res => {
+      notice.innerHTML = '';
+      const codes = res.codes || [];
+      if (codes.length === 0) {
+        requestNewCode(email); // first time for this email - mint a code straight away
+      } else {
+        showMyCodes(email, codes);
+      }
+    })
+    .catch(() => { notice.innerHTML = '<div class="notice err">Could not reach the server right now. Try again shortly.</div>'; });
+}
+
+function requestNewCode(email){
+  const notice = document.getElementById('requestAccessNotice');
   notice.innerHTML = '<div class="notice">Sending your code...</div>';
-  const url = `${APPS_SCRIPT_URL}?action=requestCode&email=${encodeURIComponent(email)}`;
-  fetch(url).then(r => r.json()).then(res => {
-    if (!res.ok) { notice.innerHTML = `<div class="notice err">${res.error || 'Could not create a code.'}</div>`; return; }
-    const emailNote = res.emailed ? `We have sent it to <strong>${email}</strong>.` : 'We could not send the email right now, but your code is shown below.';
-    notice.innerHTML = `<div class="notice ok">Your access code is <strong>${res.code}</strong>. ${emailNote}</div>`;
-    showCodeEntry();
-    document.getElementById('fAccessCode').value = res.code;
-  }).catch(() => { notice.innerHTML = '<div class="notice err">Could not reach the server right now. Try again shortly.</div>'; });
+  fetch(`${APPS_SCRIPT_URL}?action=requestCode&email=${encodeURIComponent(email)}`)
+    .then(r => r.json()).then(res => {
+      if (!res.ok) { notice.innerHTML = `<div class="notice err">${res.error || 'Could not create a code.'}</div>`; return; }
+      const emailNote = res.emailed ? `We have sent it to <strong>${email}</strong>.` : 'We could not send the email right now, but your code is shown below.';
+      notice.innerHTML = `<div class="notice ok">Your access code is <strong>${res.code}</strong>. ${emailNote}</div>`;
+      showCodeEntry();
+      document.getElementById('fAccessCode').value = res.code;
+    }).catch(() => { notice.innerHTML = '<div class="notice err">Could not reach the server right now. Try again shortly.</div>'; });
+}
+
+function showMyCodes(email, codes){
+  document.getElementById('accessCard').classList.add('hidden');
+  document.getElementById('myCodesCard').classList.remove('hidden');
+  document.getElementById('myCodesCard').dataset.email = email;
+  const wrap = document.getElementById('myCodesWrap');
+  let html = '';
+  codes.forEach(c => {
+    const label = c.solution ? c.solution : '(solution name not set yet)';
+    const status = !c.active ? 'Inactive' : (c.submitted ? 'Submitted' : 'In progress');
+    html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--light)">
+      <span><strong>${label}</strong><br><span style="color:var(--muted);font-size:11.5px">${status}</span></span>
+      <button ${!c.active ? 'disabled' : ''} onclick="logInWithCode('${encodeURIComponent(c.code)}')">Log In</button>
+    </div>`;
+  });
+  wrap.innerHTML = html;
+}
+
+function logInWithCode(codeEncoded){
+  document.getElementById('myCodesCard').classList.add('hidden');
+  document.getElementById('codeEntryCard').classList.remove('hidden');
+  document.getElementById('fAccessCode').value = decodeURIComponent(codeEncoded);
+  checkAccessCode();
+}
+
+function addAnotherSolution(){
+  const email = document.getElementById('myCodesCard').dataset.email;
+  const notice = document.getElementById('myCodesNotice');
+  notice.innerHTML = '<div class="notice">Creating a new code...</div>';
+  fetch(`${APPS_SCRIPT_URL}?action=requestCode&email=${encodeURIComponent(email)}`)
+    .then(r => r.json()).then(res => {
+      if (!res.ok) { notice.innerHTML = `<div class="notice err">${res.error || 'Could not create a code.'}</div>`; return; }
+      notice.innerHTML = '';
+      document.getElementById('myCodesCard').classList.add('hidden');
+      const emailNote = res.emailed ? `We have sent it to <strong>${email}</strong>.` : 'We could not send the email right now, but your code is shown below.';
+      document.getElementById('requestAccessNotice').innerHTML = `<div class="notice ok">New access code for your new solution: <strong>${res.code}</strong>. ${emailNote}</div>`;
+      showCodeEntry();
+      document.getElementById('fAccessCode').value = res.code;
+    })
+    .catch(() => { notice.innerHTML = '<div class="notice err">Could not reach the server right now.</div>'; });
 }
 
 function showCodeEntry(){
   document.getElementById('accessCard').classList.add('hidden');
+  document.getElementById('myCodesCard').classList.add('hidden');
   document.getElementById('codeEntryCard').classList.remove('hidden');
   document.getElementById('fAccessCode').focus();
 }
@@ -646,6 +717,7 @@ function backToAccess(){
   document.getElementById('adminLoginCard').classList.add('hidden');
   document.getElementById('adminViewCard').classList.add('hidden');
   document.getElementById('codeEntryCard').classList.add('hidden');
+  document.getElementById('myCodesCard').classList.add('hidden');
   document.getElementById('accessCard').classList.remove('hidden');
 }
 function adminLogin(){

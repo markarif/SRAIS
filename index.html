@@ -352,7 +352,7 @@ footer{text-align:center;font-size:11.5px;color:var(--muted);padding:30px 0}
       </div>
 
       <div class="qgroup-title">Responsibility / scalability rubric</div>
-      <svg id="stageRubric" viewBox="0 0 640 380" style="width:100%;height:auto;max-width:520px;display:block;margin:0 auto"></svg>
+      <svg id="stageRubric" viewBox="0 0 620 470" style="width:100%;height:auto;max-width:520px;display:block;margin:0 auto"></svg>
 
       <div id="incompleteNotice"></div>
       <div class="btn-row">
@@ -385,7 +385,7 @@ footer{text-align:center;font-size:11.5px;color:var(--muted);padding:30px 0}
       </div>
 
       <div class="qgroup-title">Responsibility / scalability trajectory across all 5 stages</div>
-      <svg id="finalRubric" viewBox="0 0 640 380" style="width:100%;height:auto;max-width:560px;display:block;margin:0 auto"></svg>
+      <svg id="finalRubric" viewBox="0 0 620 470" style="width:100%;height:auto;max-width:560px;display:block;margin:0 auto"></svg>
 
       <div id="submitNotice"></div>
       <div class="btn-row">
@@ -412,7 +412,7 @@ footer{text-align:center;font-size:11.5px;color:var(--muted);padding:30px 0}
       </div>
 
       <div class="qgroup-title">Responsibility / scalability trajectory</div>
-      <svg id="mySubRubric" viewBox="0 0 640 380" style="width:100%;height:auto;max-width:560px;display:block;margin:0 auto"></svg>
+      <svg id="mySubRubric" viewBox="0 0 620 470" style="width:100%;height:auto;max-width:560px;display:block;margin:0 auto"></svg>
 
       <div class="qgroup-title">Full Responses by Stage</div>
       <div class="sec-desc">Click a stage to expand or collapse it.</div>
@@ -1143,50 +1143,67 @@ function renderRubricFromRows(svgId, rows){
   drawRubricSvg(svgId, points, SRAIS_DATA.length - 1);
 }
 
-// Shared drawing routine: a nested-cube plot where each stage gets its own
-// progressively larger box, and a point is plotted inside it at (cumulative
-// SAI%, cumulative RAI%) reached by that point in the assessment.
-// upToStageIdx controls how many points are drawn - used both to build the
-// rubric up one point at a time during a live assessment, and to show the
-// complete trajectory for a finished one.
+// Shared drawing routine, matching the reference rubric image: a Responsibility
+// (Y) x Scalability (X) plot from 0-100 with tick-marked, arrow-headed axes,
+// 5 nested boxes sharing the origin corner (one per stage, each larger than
+// the last), a third "Stage in the Lifecycle" axis running diagonally down-left
+// purely to label the stage sequence, and a point per completed stage plotted
+// at its own (cumulative SAI%, cumulative RAI%). upToStageIdx controls how many
+// points are drawn - used both to build the rubric up one point at a time
+// during a live assessment, and to show the complete trajectory for a finished
+// one.
+const RUBRIC_STAGE_COLORS = ['#991B1B','#111827','#92400E','#2563EB','#534AB7'];
 function drawRubricSvg(svgId, points, upToStageIdx){
   const svg = document.getElementById(svgId);
   if (!svg) return;
-  // depth is the stage INDEX (0-4), not a pre-scaled pixel value - skewX/skewY
-  // below are already the full per-stage pixel offset. These specific values
-  // were verified numerically (not just eyeballed) to keep every cube corner
-  // and data point inside the 640x360 viewBox with margin on all sides.
-  const originX = 150, originY = 300, scaleX = 2.4, scaleY = 1.8, skewX = 32, skewY = 20;
-  const project = (sai, rai, depth) => [originX + sai*scaleX + depth*skewX, originY - rai*scaleY - depth*skewY];
-  const cubeAt = (depth, size) => {
-    const p00 = project(0,0,depth), p10 = project(size,0,depth), p01 = project(0,size,depth), p11 = project(size,size,depth);
-    return `M${p00} L${p10} L${p11} L${p01} Z`;
-  };
+  const originX = 170, originY = 320, scaleX = 3.6, scaleY = 2.5;
+  const px = (sai) => originX + sai*scaleX;
+  const py = (rai) => originY - rai*scaleY;
   let s = '';
-  for (let i = 0; i < SRAIS_DATA.length; i++) {
-    const size = 45 + i*11, active = i <= upToStageIdx;
-    s += `<path d="${cubeAt(i,size)}" fill="none" stroke="${active?'var(--navy)':'var(--border-strong,var(--border))'}" stroke-width="${active?1.4:1.1}" opacity="${active?0.85:0.55}"/>`;
-    const [lx,ly] = project(0,-5,i);
-    s += `<text x="${lx}" y="${ly}" font-size="10" fill="${active?'var(--navy)':'var(--muted)'}" text-anchor="start">${SRAIS_DATA[i].stage}</text>`;
-  }
-  // Axis titles use fixed, hand-checked positions rather than being derived
-  // from the 3D projection - anchoring long text strings to a projected point
-  // is exactly what pushed them off-canvas before.
-  s += `<text x="10" y="20" font-size="11" fill="var(--muted)">Responsibility of AI (%)</text>`;
-  s += `<text x="10" y="345" font-size="11" fill="var(--muted)">Scalability of AI (%) &#8594;</text>`;
 
+  // Y axis (Responsibility) and X axis (Scalability), with ticks 0/20/40/60/80/100
+  s += `<line x1="${originX}" y1="${originY}" x2="${originX}" y2="${py(100)-16}" stroke="var(--text)" stroke-width="1.2"/>`;
+  s += `<path d="M${originX-4},${py(100)-14} L${originX+4},${py(100)-14} L${originX},${py(100)-24} Z" fill="var(--text)"/>`;
+  s += `<line x1="${originX}" y1="${originY}" x2="${px(100)+16}" y2="${originY}" stroke="var(--text)" stroke-width="1.2"/>`;
+  s += `<path d="M${px(100)+14},${originY-4} L${px(100)+14},${originY+4} L${px(100)+24},${originY} Z" fill="var(--text)"/>`;
+  [0,20,40,60,80,100].forEach(v => {
+    s += `<line x1="${originX-4}" y1="${py(v)}" x2="${originX}" y2="${py(v)}" stroke="var(--text)" stroke-width="1"/>`;
+    s += `<text x="${originX-8}" y="${py(v)+3}" font-size="9.5" fill="var(--muted)" text-anchor="end">${v}</text>`;
+    s += `<line x1="${px(v)}" y1="${originY}" x2="${px(v)}" y2="${originY+4}" stroke="var(--text)" stroke-width="1"/>`;
+    s += `<text x="${px(v)}" y="${originY+15}" font-size="9.5" fill="var(--muted)" text-anchor="middle">${v}</text>`;
+  });
+  s += `<text x="${originX}" y="16" font-size="11" fill="var(--navy)" font-weight="700">Responsibility of AI (%)</text>`;
+  s += `<text x="${px(100)-90}" y="${originY+34}" font-size="11" fill="var(--navy)" font-weight="700">Scalability of AI (%)</text>`;
+
+  // Third "Stage in the Lifecycle" axis: diagonal, purely for labelling order
+  const diagEnd = [originX-150, originY+120];
+  s += `<line x1="${originX}" y1="${originY}" x2="${diagEnd[0]+10}" y2="${diagEnd[1]-8}" stroke="var(--text)" stroke-width="1.2"/>`;
+  s += `<path d="M${diagEnd[0]+18},${diagEnd[1]-18} L${diagEnd[0]+2},${diagEnd[1]-14} L${diagEnd[0]+14},${diagEnd[1]-2} Z" fill="var(--text)"/>`;
+  s += `<text x="${diagEnd[0]-6}" y="${diagEnd[1]+2}" font-size="11" fill="var(--navy)" font-weight="700">Stage in the lifecycle</text>`;
+  SRAIS_DATA.forEach((st, i) => {
+    const t = (i+1)/(SRAIS_DATA.length+0.6);
+    const lx = originX + (diagEnd[0]-originX)*t, ly = originY + (diagEnd[1]-originY)*t;
+    const active = i <= upToStageIdx;
+    s += `<text x="${lx+6}" y="${ly}" font-size="9.5" fill="${active?'var(--navy)':'var(--muted)'}" text-anchor="start">${st.stage}</text>`;
+  });
+
+  // Nested boxes, one per stage, all sharing the origin corner
+  for (let i = 0; i < SRAIS_DATA.length; i++) {
+    const size = (i+1)*20, active = i <= upToStageIdx;
+    s += `<rect x="${originX}" y="${py(size)}" width="${px(size)-originX}" height="${originY-py(size)}" fill="none" stroke="${active?'var(--navy)':'var(--border)'}" stroke-width="${active?1.3:1}" opacity="${active?0.8:0.5}"/>`;
+  }
+
+  // Trajectory line + one point per completed stage, colour-coded per stage
   let path = '';
   for (let i = 0; i <= upToStageIdx; i++) {
-    const [px,py] = project(points[i].saiPct, points[i].raiPct, i);
-    path += (i===0?'M':'L') + px + ',' + py + ' ';
+    path += (i===0?'M':'L') + px(points[i].saiPct) + ',' + py(points[i].raiPct) + ' ';
   }
-  if (upToStageIdx > 0) s += `<path d="${path}" fill="none" stroke="var(--blue)" stroke-width="1.3" stroke-dasharray="3,3"/>`;
-
+  if (upToStageIdx > 0) s += `<path d="${path}" fill="none" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3,3"/>`;
   for (let i = 0; i <= upToStageIdx; i++) {
-    const [px,py] = project(points[i].saiPct, points[i].raiPct, i);
+    const cx = px(points[i].saiPct), cy = py(points[i].raiPct);
     const isLast = i === upToStageIdx;
-    s += `<circle cx="${px}" cy="${py}" r="${isLast?6:4.5}" fill="var(--blue)" stroke="var(--white)" stroke-width="1.5"/>`;
-    if (isLast) s += `<text x="${px+9}" y="${py-8}" font-size="10.5" font-weight="700" fill="var(--navy)">RAI ${points[i].raiPct.toFixed(0)}% / SAI ${points[i].saiPct.toFixed(0)}%</text>`;
+    s += `<circle cx="${cx}" cy="${cy}" r="${isLast?6:4.5}" fill="${RUBRIC_STAGE_COLORS[i]}" stroke="var(--white)" stroke-width="1.5"/>`;
+    if (isLast) s += `<text x="${cx+9}" y="${cy-8}" font-size="10.5" font-weight="700" fill="var(--navy)">RAI ${points[i].raiPct.toFixed(0)}% / SAI ${points[i].saiPct.toFixed(0)}%</text>`;
   }
   svg.innerHTML = s;
 }

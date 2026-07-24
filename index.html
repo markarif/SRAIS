@@ -410,6 +410,10 @@ footer{text-align:center;font-size:11.5px;color:var(--muted);padding:30px 0}
         <div class="summary-tile good"><div class="label">Final RAI score</div><div class="value" id="mySubRai"></div></div>
         <div class="summary-tile good"><div class="label">Final SAI score</div><div class="value" id="mySubSai"></div></div>
       </div>
+
+      <div class="qgroup-title">Responsibility / scalability trajectory</div>
+      <svg id="mySubRubric" viewBox="0 0 640 380" style="width:100%;height:auto;max-width:560px;display:block;margin:0 auto"></svg>
+
       <div class="qgroup-title">Full Responses by Stage</div>
       <div class="sec-desc">Click a stage to expand or collapse it.</div>
       <div id="mySubTableWrap"></div>
@@ -674,6 +678,7 @@ function showMySubmission(subRes){
   document.getElementById('mySubDate').textContent = new Date(s.timestamp).toLocaleString();
   document.getElementById('mySubRai').textContent = normalizePct(s.finalRaiPct).toFixed(1) + '%';
   document.getElementById('mySubSai').textContent = normalizePct(s.finalSaiPct).toFixed(1) + '%';
+  renderRubricFromRows('mySubRubric', subRes.rows || []);
 
   mySubRawRows = subRes.rows || [];
   const byStage = [];
@@ -1109,9 +1114,49 @@ function cumulativeThrough(i, kind){
 // point in the assessment. upToStageIdx controls how many points are shown -
 // used to make the rubric visibly build up one point per completed stage.
 function renderRubricSvg(svgId, upToStageIdx){
+  const points = SRAIS_DATA.map((s, i) => ({
+    raiPct: (cumulativeThrough(i, 'rai') / RAI_GRAND_MAX) * 100,
+    saiPct: (cumulativeThrough(i, 'sai') / SAI_GRAND_MAX) * 100,
+  }));
+  drawRubricSvg(svgId, points, upToStageIdx);
+}
+
+// Rebuilds the same rubric from a completed submission's flat response rows
+// (Stage, Type, Principle, Question, Response, Score) rather than the live
+// in-memory answers[] array. This is what makes the rubric work for every
+// past submission, not just ones made after this feature existed - Stage,
+// Type, and Score have been recorded on every response row from the start.
+function renderRubricFromRows(svgId, rows){
+  const raiByStage = {}, saiByStage = {};
+  SRAIS_DATA.forEach(s => { raiByStage[s.stage] = 0; saiByStage[s.stage] = 0; });
+  (rows || []).forEach(r => {
+    const stage = r[0], type = r[1], score = parseFloat(r[5]) || 0;
+    if (!(stage in raiByStage)) return;
+    if (type === 'RAI') raiByStage[stage] += score;
+    else if (type === 'SAI') saiByStage[stage] += score;
+  });
+  let cumRai = 0, cumSai = 0;
+  const points = SRAIS_DATA.map(s => {
+    cumRai += raiByStage[s.stage]; cumSai += saiByStage[s.stage];
+    return { raiPct: (cumRai / RAI_GRAND_MAX) * 100, saiPct: (cumSai / SAI_GRAND_MAX) * 100 };
+  });
+  drawRubricSvg(svgId, points, SRAIS_DATA.length - 1);
+}
+
+// Shared drawing routine: a nested-cube plot where each stage gets its own
+// progressively larger box, and a point is plotted inside it at (cumulative
+// SAI%, cumulative RAI%) reached by that point in the assessment.
+// upToStageIdx controls how many points are drawn - used both to build the
+// rubric up one point at a time during a live assessment, and to show the
+// complete trajectory for a finished one.
+function drawRubricSvg(svgId, points, upToStageIdx){
   const svg = document.getElementById(svgId);
   if (!svg) return;
-  const originX = 90, originY = 340, scaleX = 2.3, scaleY = 2.3, skewX = 22, skewY = 20;
+  // depth is the stage INDEX (0-4), not a pre-scaled pixel value - skewX/skewY
+  // below are already the full per-stage pixel offset. These specific values
+  // were verified numerically (not just eyeballed) to keep every cube corner
+  // and data point inside the 640x360 viewBox with margin on all sides.
+  const originX = 150, originY = 300, scaleX = 2.4, scaleY = 1.8, skewX = 32, skewY = 20;
   const project = (sai, rai, depth) => [originX + sai*scaleX + depth*skewX, originY - rai*scaleY - depth*skewY];
   const cubeAt = (depth, size) => {
     const p00 = project(0,0,depth), p10 = project(size,0,depth), p01 = project(0,size,depth), p11 = project(size,size,depth);
@@ -1119,33 +1164,29 @@ function renderRubricSvg(svgId, upToStageIdx){
   };
   let s = '';
   for (let i = 0; i < SRAIS_DATA.length; i++) {
-    const depth = i*34, size = 55 + i*7, active = i <= upToStageIdx;
-    s += `<path d="${cubeAt(depth,size)}" fill="none" stroke="var(--border-strong,var(--border))" stroke-width="${active?1.3:1}" opacity="${active?0.9:0.3}"/>`;
-    const [lx,ly] = project(-8,-2,depth);
-    s += `<text x="${lx}" y="${ly}" font-size="10" fill="${active?'var(--navy)':'var(--muted)'}" text-anchor="end">${SRAIS_DATA[i].stage}</text>`;
+    const size = 45 + i*11, active = i <= upToStageIdx;
+    s += `<path d="${cubeAt(i,size)}" fill="none" stroke="${active?'var(--navy)':'var(--border-strong,var(--border))'}" stroke-width="${active?1.4:1.1}" opacity="${active?0.85:0.55}"/>`;
+    const [lx,ly] = project(0,-5,i);
+    s += `<text x="${lx}" y="${ly}" font-size="10" fill="${active?'var(--navy)':'var(--muted)'}" text-anchor="start">${SRAIS_DATA[i].stage}</text>`;
   }
-  const [ax0,ay0] = project(0,0,-6), [ax1,ay1] = project(100,0,-6), [bx1,by1] = project(0,100,-6);
-  s += `<line x1="${ax0}" y1="${ay0}" x2="${ax1}" y2="${ay1}" stroke="var(--muted)" stroke-width="1"/>`;
-  s += `<line x1="${ax0}" y1="${ay0}" x2="${bx1}" y2="${by1}" stroke="var(--muted)" stroke-width="1"/>`;
-  s += `<text x="${ax1+6}" y="${ay1+4}" font-size="11" fill="var(--muted)">Scalability of AI (%)</text>`;
-  s += `<text x="${bx1}" y="${by1-8}" font-size="11" fill="var(--muted)">Responsibility of AI (%)</text>`;
+  // Axis titles use fixed, hand-checked positions rather than being derived
+  // from the 3D projection - anchoring long text strings to a projected point
+  // is exactly what pushed them off-canvas before.
+  s += `<text x="10" y="20" font-size="11" fill="var(--muted)">Responsibility of AI (%)</text>`;
+  s += `<text x="10" y="345" font-size="11" fill="var(--muted)">Scalability of AI (%) &#8594;</text>`;
 
   let path = '';
   for (let i = 0; i <= upToStageIdx; i++) {
-    const raiPct = (cumulativeThrough(i,'rai')/RAI_GRAND_MAX)*100;
-    const saiPct = (cumulativeThrough(i,'sai')/SAI_GRAND_MAX)*100;
-    const [px,py] = project(saiPct, raiPct, i*34);
+    const [px,py] = project(points[i].saiPct, points[i].raiPct, i);
     path += (i===0?'M':'L') + px + ',' + py + ' ';
   }
-  if (upToStageIdx > 0) s += `<path d="${path}" fill="none" stroke="var(--blue)" stroke-width="1" stroke-dasharray="3,3"/>`;
+  if (upToStageIdx > 0) s += `<path d="${path}" fill="none" stroke="var(--blue)" stroke-width="1.3" stroke-dasharray="3,3"/>`;
 
   for (let i = 0; i <= upToStageIdx; i++) {
-    const raiPct = (cumulativeThrough(i,'rai')/RAI_GRAND_MAX)*100;
-    const saiPct = (cumulativeThrough(i,'sai')/SAI_GRAND_MAX)*100;
-    const [px,py] = project(saiPct, raiPct, i*34);
+    const [px,py] = project(points[i].saiPct, points[i].raiPct, i);
     const isLast = i === upToStageIdx;
-    s += `<circle cx="${px}" cy="${py}" r="${isLast?6:4}" fill="var(--blue)" stroke="var(--white)" stroke-width="1.5"/>`;
-    if (isLast) s += `<text x="${px+9}" y="${py-8}" font-size="10.5" font-weight="700" fill="var(--navy)">RAI ${raiPct.toFixed(0)}% / SAI ${saiPct.toFixed(0)}%</text>`;
+    s += `<circle cx="${px}" cy="${py}" r="${isLast?6:4.5}" fill="var(--blue)" stroke="var(--white)" stroke-width="1.5"/>`;
+    if (isLast) s += `<text x="${px+9}" y="${py-8}" font-size="10.5" font-weight="700" fill="var(--navy)">RAI ${points[i].raiPct.toFixed(0)}% / SAI ${points[i].saiPct.toFixed(0)}%</text>`;
   }
   svg.innerHTML = s;
 }

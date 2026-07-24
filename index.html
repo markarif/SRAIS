@@ -21,6 +21,8 @@ body{font-family:'Segoe UI',system-ui,-apple-system,Arial,sans-serif;background:
 .header h1{font-size:16.5px;font-weight:800;letter-spacing:.3px}
 .header span{font-size:12px;opacity:.62;margin-left:10px;font-weight:400}
 .header .tag{font-size:12px;opacity:.85;background:rgba(255,255,255,.12);padding:5px 12px;border-radius:20px}
+.header .hn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);color:#fff;padding:6px 13px;font-size:12px;font-weight:600;border-radius:20px}
+.header .hn:hover{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.4)}
 .container{max-width:1120px;margin:0 auto;padding:32px 20px 60px}
 .card.narrow{max-width:620px;margin-left:auto;margin-right:auto}
 .qa-columns{display:grid;grid-template-columns:1fr 1fr;gap:0 32px}
@@ -118,7 +120,10 @@ footer{text-align:center;font-size:11.5px;color:var(--muted);padding:30px 0}
 
 <div class="header">
   <div><h1>SRAIS Tool<span>Scaling Responsible AI in Startups</span></h1></div>
-  <div class="tag" id="respondentTag" style="display:none"></div>
+  <div style="display:flex;align-items:center;gap:10px">
+    <div class="tag" id="respondentTag" style="display:none"></div>
+    <button class="hn" id="logoutBtn" onclick="logout()" style="display:none">Log Out</button>
+  </div>
 </div>
 
 <div class="container">
@@ -343,13 +348,63 @@ const SAI_GRAND_MAX = 565;
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyoSGJwLG7XKIIPyfJB6p0CWFAh76Jk2kK7EenDaX8xblQ95OG_LxmTViJLzpfj-LHUyw/exec";
 
 let currentStage = 0;
-const answers = SRAIS_DATA.map(s => ({
+let answers = SRAIS_DATA.map(s => ({
   rai: s.rai.map(() => (null)),
   sai: s.sai.map(() => (null)),
   activities: "", challenges: "", opportunities: ""
 }));
 let meta = { innovator: "", solution: "", respondent: "" };
 let adminKey = '';
+let currentAccessCode = '';
+
+// ── PROGRESS PERSISTENCE (resume where you left off) ──────────────
+function progressKey(code){ return 'srais_progress_' + code; }
+function saveProgress(){
+  if (!currentAccessCode) return;
+  try {
+    localStorage.setItem(progressKey(currentAccessCode), JSON.stringify({
+      currentStage: currentStage, answers: answers, meta: meta, savedAt: new Date().toISOString()
+    }));
+  } catch (e) { /* storage may be unavailable (private browsing, quota) - fail silently, nothing to resume then */ }
+}
+function loadProgress(code){
+  try {
+    const raw = localStorage.getItem(progressKey(code));
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+}
+function resetSessionState(){
+  currentStage = 0;
+  answers = SRAIS_DATA.map(s => ({
+    rai: s.rai.map(() => (null)),
+    sai: s.sai.map(() => (null)),
+    activities: "", challenges: "", opportunities: ""
+  }));
+  meta = { innovator: "", solution: "", respondent: "" };
+}
+
+function logout(){
+  // Progress is already saved continuously to localStorage under the access
+  // code, so logging out does not lose anything - logging back in with the
+  // same code resumes exactly where this left off.
+  currentAccessCode = '';
+  resetSessionState();
+  document.getElementById('logoutBtn').style.display = 'none';
+  const tag = document.getElementById('respondentTag');
+  tag.style.display = 'none';
+  tag.textContent = '';
+  ['assessmentArea', 'finalArea', 'introCard', 'codeEntryCard', 'adminViewCard', 'adminLoginCard'].forEach(id => {
+    document.getElementById(id).classList.add('hidden');
+  });
+  document.getElementById('fAccessCode').value = '';
+  document.getElementById('fReqEmail').value = '';
+  document.getElementById('accessCard').classList.remove('hidden');
+  window.scrollTo(0,0);
+}
+
+function clearProgress(code){
+  try { localStorage.removeItem(progressKey(code)); } catch (e) {}
+}
 
 // ── ACCESS: EMAIL FIRST ─────────────────────────────────────────
 function submitAccessRequest(){
@@ -385,11 +440,33 @@ function checkAccessCode(){
     .then(res => {
       if (res.valid) {
         notice.innerHTML = '';
-        document.getElementById('codeEntryCard').classList.add('hidden');
-        document.getElementById('introCard').classList.remove('hidden');
-        document.getElementById('fInnovator').focus();
-        document.getElementById('fInnovator').value = (res.innovator && res.innovator.includes('@')) ? '' : (res.innovator || '');
-        document.getElementById('fSolution').value = res.solution || '';
+        currentAccessCode = code;
+        const saved = loadProgress(code);
+        document.getElementById('logoutBtn').style.display = 'inline-block';
+        if (saved && saved.meta && saved.meta.innovator) {
+          // Resume an in-progress assessment exactly where it was left off.
+          meta = saved.meta;
+          answers = saved.answers;
+          currentStage = saved.currentStage || 0;
+          document.getElementById('codeEntryCard').classList.add('hidden');
+          document.getElementById('introCard').classList.add('hidden');
+          const tag = document.getElementById('respondentTag');
+          tag.textContent = meta.innovator + " - " + meta.solution;
+          tag.style.display = 'inline-block';
+          document.getElementById('assessmentArea').classList.remove('hidden');
+          renderStage();
+          window.scrollTo(0,0);
+        } else {
+          // Fresh login on this code, no saved progress - make sure no other
+          // session's answers linger in memory from before (e.g. a previous
+          // user logging out on this same browser/device).
+          resetSessionState();
+          document.getElementById('codeEntryCard').classList.add('hidden');
+          document.getElementById('introCard').classList.remove('hidden');
+          document.getElementById('fInnovator').focus();
+          document.getElementById('fInnovator').value = (res.innovator && res.innovator.includes('@')) ? '' : (res.innovator || '');
+          document.getElementById('fSolution').value = res.solution || '';
+        }
       } else {
         notice.innerHTML = '<div class="notice err">Access code not recognised. Check the code and try again.</div>';
       }
@@ -588,6 +665,7 @@ function startAssessment(){
   if (meta.innovator) { tag.textContent = meta.innovator + " - " + meta.solution; tag.style.display = 'inline-block'; }
   document.getElementById('introCard').classList.add('hidden');
   document.getElementById('assessmentArea').classList.remove('hidden');
+  saveProgress();
   renderStage();
 }
 
@@ -679,6 +757,7 @@ function renderQuestion(container, stageIdx, kind, qi, q){
       } else {
         answers[stageIdx][kind][qi] = oi;
       }
+      saveProgress();
       renderStage();
     });
     label.appendChild(input);
@@ -761,6 +840,7 @@ function saveStageText(){
   answers[currentStage].activities = document.getElementById('fActivities').value;
   answers[currentStage].challenges = document.getElementById('fChallenges').value;
   answers[currentStage].opportunities = document.getElementById('fOpportunities').value;
+  saveProgress();
 }
 
 function nextStage(){
@@ -856,7 +936,7 @@ function submitResponses(){
   };
   notice.innerHTML = '<div class="notice">Submitting...</div>';
   fetch(APPS_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: {'Content-Type':'text/plain'}, body: JSON.stringify(payload) })
-    .then(() => { notice.innerHTML = '<div class="notice ok">Submitted. Your responses have been recorded.</div>'; })
+    .then(() => { notice.innerHTML = '<div class="notice ok">Submitted. Your responses have been recorded.</div>'; clearProgress(currentAccessCode); })
     .catch(() => { notice.innerHTML = '<div class="notice err">Submission failed. Please use "Download as Excel" and send the file manually.</div>'; });
 }
 </script>

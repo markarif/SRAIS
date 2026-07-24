@@ -928,6 +928,7 @@ function submitResponses(){
     return;
   }
   const payload = {
+    code: currentAccessCode,
     innovator: meta.innovator, solution: meta.solution, respondent: meta.respondent,
     date: new Date().toISOString(),
     finalRaiPct: ((cumulativeThrough(SRAIS_DATA.length-1,'rai')/RAI_GRAND_MAX)*100).toFixed(1),

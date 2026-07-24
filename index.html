@@ -139,6 +139,7 @@ footer{text-align:center;font-size:11.5px;color:var(--muted);padding:30px 0}
   <div><h1>SRAIS Tool<span>Scaling Responsible AI in Startups</span></h1></div>
   <div style="display:flex;align-items:center;gap:10px">
     <div class="tag" id="respondentTag" style="display:none"></div>
+    <button class="hn" id="profileBtn" onclick="showEditProfile()" style="display:none">Edit Profile</button>
     <button class="hn" id="logoutBtn" onclick="logout()" style="display:none">Log Out</button>
   </div>
 </div>
@@ -367,6 +368,47 @@ footer{text-align:center;font-size:11.5px;color:var(--muted);padding:30px 0}
     </div>
   </div>
 
+  <div id="mySubmissionCard" class="hidden">
+    <div class="card">
+      <div class="sec-label">Already submitted</div>
+      <div class="sec-title">Your Submission</div>
+      <div class="sec-desc">You have already completed and submitted this assessment. Shown below is exactly what was recorded - this is a read-only view.</div>
+      <div class="summary-box">
+        <div class="stat-tile"><div class="label">Innovator</div><div class="value" style="font-size:15px" id="mySubInnovator"></div></div>
+        <div class="stat-tile"><div class="label">Solution</div><div class="value" style="font-size:15px" id="mySubSolution"></div></div>
+        <div class="stat-tile"><div class="label">Respondent</div><div class="value" style="font-size:15px" id="mySubRespondent"></div></div>
+        <div class="stat-tile"><div class="label">Submitted</div><div class="value" style="font-size:13px" id="mySubDate"></div></div>
+      </div>
+      <div class="summary-box">
+        <div class="summary-tile good"><div class="label">Final RAI score</div><div class="value" id="mySubRai"></div></div>
+        <div class="summary-tile good"><div class="label">Final SAI score</div><div class="value" id="mySubSai"></div></div>
+      </div>
+      <div class="qgroup-title">Full Responses</div>
+      <div id="mySubTableWrap"></div>
+      <div class="btn-row">
+        <button onclick="showEditProfile()">Edit Profile</button>
+        <button class="primary" onclick="logout()">Log Out</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card narrow hidden" id="editProfileCard">
+    <div class="sec-label">Your Profile</div>
+    <div class="sec-title">Edit Innovator / Solution Details</div>
+    <div class="sec-desc">Changes here update your access code's record. Your assessment answers, if any, are not affected.</div>
+    <form onsubmit="saveProfile(); return false;">
+      <label class="field-label">Innovator / Organisation Name</label>
+      <input type="text" id="fProfileInnovator" autofocus>
+      <label class="field-label">AI Solution Name</label>
+      <input type="text" id="fProfileSolution">
+      <div id="profileNotice"></div>
+      <div class="btn-row">
+        <button type="button" onclick="cancelEditProfile()">Cancel</button>
+        <button type="submit" class="primary">Save Changes</button>
+      </div>
+    </form>
+  </div>
+
   <footer>SRAIS Tool</footer>
 </div>
 
@@ -421,10 +463,11 @@ function logout(){
   currentAccessCode = '';
   resetSessionState();
   document.getElementById('logoutBtn').style.display = 'none';
+  document.getElementById('profileBtn').style.display = 'none';
   const tag = document.getElementById('respondentTag');
   tag.style.display = 'none';
   tag.textContent = '';
-  ['assessmentArea', 'finalArea', 'introCard', 'codeEntryCard', 'adminViewCard', 'adminLoginCard'].forEach(id => {
+  ['assessmentArea', 'finalArea', 'introCard', 'codeEntryCard', 'adminViewCard', 'adminLoginCard', 'mySubmissionCard', 'editProfileCard'].forEach(id => {
     document.getElementById(id).classList.add('hidden');
   });
   document.getElementById('fAccessCode').value = '';
@@ -472,37 +515,124 @@ function checkAccessCode(){
       if (res.valid) {
         notice.innerHTML = '';
         currentAccessCode = code;
-        const saved = loadProgress(code);
         document.getElementById('logoutBtn').style.display = 'inline-block';
-        if (saved && saved.meta && saved.meta.innovator) {
-          // Resume an in-progress assessment exactly where it was left off.
-          meta = saved.meta;
-          answers = saved.answers;
-          currentStage = saved.currentStage || 0;
-          document.getElementById('codeEntryCard').classList.add('hidden');
-          document.getElementById('introCard').classList.add('hidden');
-          const tag = document.getElementById('respondentTag');
-          tag.textContent = meta.innovator + " - " + meta.solution;
-          tag.style.display = 'inline-block';
-          document.getElementById('assessmentArea').classList.remove('hidden');
-          renderStage();
-          window.scrollTo(0,0);
-        } else {
-          // Fresh login on this code, no saved progress - make sure no other
-          // session's answers linger in memory from before (e.g. a previous
-          // user logging out on this same browser/device).
-          resetSessionState();
-          document.getElementById('codeEntryCard').classList.add('hidden');
-          document.getElementById('introCard').classList.remove('hidden');
-          document.getElementById('fInnovator').focus();
-          document.getElementById('fInnovator').value = (res.innovator && res.innovator.includes('@')) ? '' : (res.innovator || '');
-          document.getElementById('fSolution').value = res.solution || '';
-        }
+        document.getElementById('profileBtn').style.display = 'inline-block';
+        notice.innerHTML = '<div class="notice">Loading your account...</div>';
+        fetch(`${APPS_SCRIPT_URL}?action=getMySubmission&code=${encodeURIComponent(code)}`)
+          .then(r => r.json())
+          .then(subRes => {
+            notice.innerHTML = '';
+            if (subRes.found) {
+              // Already submitted - show what was submitted instead of starting over.
+              document.getElementById('codeEntryCard').classList.add('hidden');
+              showMySubmission(subRes);
+              return;
+            }
+            continueLoginFlow(code, res);
+          })
+          .catch(() => { notice.innerHTML = ''; continueLoginFlow(code, res); });
       } else {
         notice.innerHTML = '<div class="notice err">Access code not recognised. Check the code and try again.</div>';
       }
     })
     .catch(() => { notice.innerHTML = '<div class="notice err">Could not verify the code right now. Try again shortly.</div>'; });
+}
+
+function continueLoginFlow(code, res){
+  const saved = loadProgress(code);
+  if (saved && saved.meta && saved.meta.innovator) {
+    // Resume an in-progress (not yet submitted) assessment where it was left off.
+    meta = saved.meta;
+    answers = saved.answers;
+    currentStage = saved.currentStage || 0;
+    document.getElementById('codeEntryCard').classList.add('hidden');
+    document.getElementById('introCard').classList.add('hidden');
+    const tag = document.getElementById('respondentTag');
+    tag.textContent = meta.innovator + " - " + meta.solution;
+    tag.style.display = 'inline-block';
+    document.getElementById('assessmentArea').classList.remove('hidden');
+    renderStage();
+    window.scrollTo(0,0);
+  } else {
+    // Fresh login, nothing submitted and nothing in progress - make sure no
+    // other session's answers linger in memory (e.g. a previous user logging
+    // out on this same browser/device).
+    resetSessionState();
+    document.getElementById('codeEntryCard').classList.add('hidden');
+    document.getElementById('introCard').classList.remove('hidden');
+    document.getElementById('fInnovator').focus();
+    document.getElementById('fInnovator').value = (res.innovator && res.innovator.includes('@')) ? '' : (res.innovator || '');
+    document.getElementById('fSolution').value = res.solution || '';
+  }
+}
+
+// ── MY SUBMISSION (already completed) ─────────────────────────────
+function showMySubmission(subRes){
+  document.getElementById('accessCard').classList.add('hidden');
+  document.getElementById('codeEntryCard').classList.add('hidden');
+  const s = subRes.summary;
+  meta = { innovator: s.innovator, solution: s.solution, respondent: s.respondent };
+  const tag = document.getElementById('respondentTag');
+  tag.textContent = s.innovator + " - " + s.solution;
+  tag.style.display = 'inline-block';
+
+  document.getElementById('mySubInnovator').textContent = s.innovator;
+  document.getElementById('mySubSolution').textContent = s.solution;
+  document.getElementById('mySubRespondent').textContent = s.respondent;
+  document.getElementById('mySubDate').textContent = new Date(s.timestamp).toLocaleString();
+  document.getElementById('mySubRai').textContent = s.finalRaiPct + '%';
+  document.getElementById('mySubSai').textContent = s.finalSaiPct + '%';
+
+  let html = '<table><thead><tr><th>Stage</th><th>Type</th><th>Question</th><th>Response</th><th>Score</th></tr></thead><tbody>';
+  (subRes.rows || []).forEach(r => {
+    html += `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[3]}</td><td>${r[4]}</td><td>${r[5]}</td></tr>`;
+  });
+  html += '</tbody></table>';
+  document.getElementById('mySubTableWrap').innerHTML = html;
+
+  document.getElementById('mySubmissionCard').classList.remove('hidden');
+  window.scrollTo(0,0);
+}
+
+// ── EDIT PROFILE ─────────────────────────────────────────────────
+let profileEditReturnTo = 'assessmentArea';
+function showEditProfile(){
+  document.getElementById('fProfileInnovator').value = meta.innovator || '';
+  document.getElementById('fProfileSolution').value = meta.solution || '';
+  ['mySubmissionCard', 'assessmentArea', 'finalArea'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el.classList.contains('hidden')) profileEditReturnTo = id;
+    el.classList.add('hidden');
+  });
+  document.getElementById('editProfileCard').classList.remove('hidden');
+}
+function cancelEditProfile(){
+  document.getElementById('editProfileCard').classList.add('hidden');
+  document.getElementById(profileEditReturnTo).classList.remove('hidden');
+}
+function saveProfile(){
+  const innovator = document.getElementById('fProfileInnovator').value.trim();
+  const solution = document.getElementById('fProfileSolution').value.trim();
+  const notice = document.getElementById('profileNotice');
+  if (!innovator || !solution) { notice.innerHTML = '<div class="notice err">Both fields are required.</div>'; return; }
+  notice.innerHTML = '<div class="notice">Saving...</div>';
+  fetch(`${APPS_SCRIPT_URL}?action=updateCodeDetails&code=${encodeURIComponent(currentAccessCode)}&innovator=${encodeURIComponent(innovator)}&solution=${encodeURIComponent(solution)}`)
+    .then(r => r.json())
+    .then(res => {
+      if (!res.ok) { notice.innerHTML = `<div class="notice err">${res.error || 'Could not save.'}</div>`; return; }
+      meta.innovator = innovator;
+      meta.solution = solution;
+      const tag = document.getElementById('respondentTag');
+      tag.textContent = innovator + " - " + solution;
+      if (document.getElementById('mySubInnovator').textContent) {
+        document.getElementById('mySubInnovator').textContent = innovator;
+        document.getElementById('mySubSolution').textContent = solution;
+      }
+      saveProgress();
+      notice.innerHTML = '<div class="notice ok">Saved.</div>';
+      setTimeout(() => { notice.innerHTML = ''; cancelEditProfile(); }, 900);
+    })
+    .catch(() => { notice.innerHTML = '<div class="notice err">Could not reach the server right now.</div>'; });
 }
 
 // ── ADMIN ────────────────────────────────────────────────────────

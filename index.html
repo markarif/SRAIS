@@ -91,6 +91,23 @@ tbody tr:hover{background:var(--light)}
 .tab-btn{border:none;background:transparent;padding:10px 16px;font-size:13px;font-weight:700;color:var(--muted);border-bottom:2.5px solid transparent;border-radius:0;margin-bottom:-1.5px}
 .tab-btn:hover{background:var(--light);border-color:transparent}
 .tab-btn.active{color:var(--navy);border-bottom-color:var(--blue)}
+.pv-stage{border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:12px;overflow:hidden}
+.pv-stage-header{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;cursor:pointer;background:var(--light);user-select:none}
+.pv-stage-header:hover{background:#F0F2F7}
+.pv-stage-title{font-size:14px;font-weight:800;color:var(--navy)}
+.pv-stage-count{font-size:11.5px;color:var(--muted)}
+.pv-stage-chevron{font-size:12px;color:var(--muted);transition:transform .2s}
+.pv-stage.open .pv-stage-chevron{transform:rotate(90deg)}
+.pv-stage-body{display:none;padding:18px}
+.pv-stage.open .pv-stage-body{display:block}
+.pv-q{padding:10px 0;border-bottom:1px solid var(--light)}
+.pv-q:last-child{border-bottom:none}
+.pv-q-text{font-size:13px;font-weight:600;margin:4px 0 8px;padding:3px 6px;border-radius:5px;outline:none}
+.pv-q-text:focus{background:#FFFBEB;box-shadow:0 0 0 2px rgba(217,119,6,.25)}
+.pv-opt-row{display:flex;align-items:center;gap:8px;font-size:12px;padding:3px 0}
+.pv-opt-label{flex:1;padding:2px 6px;border-radius:4px;outline:none}
+.pv-opt-label:focus{background:#FFFBEB;box-shadow:0 0 0 2px rgba(217,119,6,.25)}
+.pv-opt-score{width:44px;text-align:center;border:1px solid var(--border);border-radius:4px;padding:2px 4px;font-size:12px}
 .stat-tile{flex:1;min-width:150px;background:var(--light);border:1px solid var(--border);border-radius:var(--radius-sm);padding:15px}
 .stat-tile .label{font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.5px}
 .stat-tile .value{font-size:23px;font-weight:800;color:var(--navy);margin-top:5px}
@@ -183,6 +200,7 @@ footer{text-align:center;font-size:11.5px;color:var(--muted);padding:30px 0}
       <button class="tab-btn" id="tabBtn-codes" onclick="showAdminTab('codes')">Access Codes</button>
       <button class="tab-btn" id="tabBtn-log" onclick="showAdminTab('log')">Access Log</button>
       <button class="tab-btn" id="tabBtn-analytics" onclick="showAdminTab('analytics')">Analytics</button>
+      <button class="tab-btn" id="tabBtn-preview" onclick="showAdminTab('preview')">Preview Questions</button>
     </div>
 
     <div id="adminTab-responses" class="admin-tab">
@@ -215,6 +233,19 @@ footer{text-align:center;font-size:11.5px;color:var(--muted);padding:30px 0}
 
     <div id="adminTab-analytics" class="admin-tab hidden">
       <div id="adminAnalyticsWrap"></div>
+    </div>
+
+    <div id="adminTab-preview" class="admin-tab hidden">
+      <div class="sec-desc">Read-only reference view of every stage, with scores shown (they are hidden from respondents). Click a stage to expand or collapse it. Question and option text can be edited here for review purposes - use "Download Edited Question Bank" to export your changes as a file; editing here does not change the live tool by itself.</div>
+      <div class="btn-row" style="margin-top:0;margin-bottom:16px">
+        <button onclick="expandAllPreview()">Expand All</button>
+        <button onclick="collapseAllPreview()">Collapse All</button>
+      </div>
+      <div id="previewWrap"></div>
+      <div class="btn-row">
+        <span></span>
+        <button class="primary" onclick="downloadEditedQuestionBank()">Download Edited Question Bank (JSON)</button>
+      </div>
     </div>
 
     <div class="btn-row">
@@ -505,13 +536,100 @@ function adminLogin(){
 }
 
 function showAdminTab(tab){
-  ['responses','codes','log','analytics'].forEach(t => {
+  ['responses','codes','log','analytics','preview'].forEach(t => {
     document.getElementById('adminTab-' + t).classList.toggle('hidden', t !== tab);
     document.getElementById('tabBtn-' + t).classList.toggle('active', t === tab);
   });
   if (tab === 'codes') loadAdminCodes();
   if (tab === 'log') loadAdminLog();
   if (tab === 'analytics') loadAdminAnalytics();
+  if (tab === 'preview') renderPreview();
+}
+
+// ── ADMIN: PREVIEW QUESTIONS ──────────────────────────────────────
+let previewRendered = false;
+function renderPreview(){
+  if (previewRendered) return;
+  previewRendered = true;
+  const wrap = document.getElementById('previewWrap');
+  wrap.innerHTML = '';
+  SRAIS_DATA.forEach((s, si) => {
+    const stageEl = document.createElement('div');
+    stageEl.className = 'pv-stage';
+    stageEl.id = 'pvStage-' + si;
+
+    const header = document.createElement('div');
+    header.className = 'pv-stage-header';
+    header.onclick = () => stageEl.classList.toggle('open');
+    header.innerHTML = `<div><span class="pv-stage-chevron">&#9656;</span> <span class="pv-stage-title">${s.stage}</span></div>`
+      + `<div class="pv-stage-count">${s.rai.length} RAI &middot; ${s.sai.length} SAI questions</div>`;
+    stageEl.appendChild(header);
+
+    const body = document.createElement('div');
+    body.className = 'pv-stage-body';
+    const cols = document.createElement('div');
+    cols.className = 'qa-columns';
+    const raiCol = document.createElement('div');
+    raiCol.className = 'qa-col qa-col-rai';
+    raiCol.innerHTML = '<div class="qgroup-title">Responsible AI (RAI) Questions</div>';
+    const saiCol = document.createElement('div');
+    saiCol.className = 'qa-col qa-col-sai';
+    saiCol.innerHTML = '<div class="qgroup-title">Scalability (SAI) Questions</div>';
+    s.rai.forEach((q, qi) => raiCol.appendChild(renderPreviewQuestion(q, si, 'rai', qi)));
+    s.sai.forEach((q, qi) => saiCol.appendChild(renderPreviewQuestion(q, si, 'sai', qi)));
+    cols.appendChild(raiCol);
+    cols.appendChild(saiCol);
+    body.appendChild(cols);
+    stageEl.appendChild(body);
+    wrap.appendChild(stageEl);
+  });
+}
+function renderPreviewQuestion(q, si, kind, qi){
+  const block = document.createElement('div');
+  block.className = 'pv-q';
+  block.dataset.stage = si; block.dataset.kind = kind; block.dataset.qi = qi; block.dataset.type = q.type;
+  const principle = q.principle ? `<div class="principle">${q.principle}</div>` : '';
+  block.innerHTML = `${principle}<div class="pv-q-text" contenteditable="true">${q.question}</div>`;
+  q.options.forEach(opt => {
+    const row = document.createElement('div');
+    row.className = 'pv-opt-row';
+    row.innerHTML = `<span>${q.type === 'multi' ? '&#9744;' : '&#9675;'}</span>`
+      + `<span class="pv-opt-label" contenteditable="true">${opt.label}</span>`
+      + `<input class="pv-opt-score" type="number" value="${opt.score}">`;
+    block.appendChild(row);
+  });
+  return block;
+}
+function expandAllPreview(){ document.querySelectorAll('.pv-stage').forEach(el => el.classList.add('open')); }
+function collapseAllPreview(){ document.querySelectorAll('.pv-stage').forEach(el => el.classList.remove('open')); }
+
+function downloadEditedQuestionBank(){
+  const edited = SRAIS_DATA.map((s, si) => {
+    const stageEl = document.getElementById('pvStage-' + si);
+    const buildList = (kind, list) => list.map((origQ, qi) => {
+      const block = stageEl.querySelector(`.pv-q[data-kind="${kind}"][data-qi="${qi}"]`);
+      const questionText = block.querySelector('.pv-q-text').textContent.trim();
+      const rows = block.querySelectorAll('.pv-opt-row');
+      const options = Array.from(rows).map(row => ({
+        label: row.querySelector('.pv-opt-label').textContent.trim(),
+        score: parseFloat(row.querySelector('.pv-opt-score').value) || 0
+      }));
+      return { principle: origQ.principle, question: questionText, type: origQ.type, options: options,
+        max: origQ.type === 'multi' ? options.reduce((sum,o) => sum+o.score, 0) : Math.max(...options.map(o=>o.score)) };
+    });
+    return {
+      stage: s.stage,
+      rai: buildList('rai', s.rai), sai: buildList('sai', s.sai),
+      rai_max: 0, sai_max: 0
+    };
+  });
+  edited.forEach(s => { s.rai_max = s.rai.reduce((sum,q)=>sum+q.max,0); s.sai_max = s.sai.reduce((sum,q)=>sum+q.max,0); });
+  const blob = new Blob([JSON.stringify(edited, null, 1)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `SRAIS_Question_Bank_Edited_${Date.now()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function renderAdminTable(rows){

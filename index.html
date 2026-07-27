@@ -502,6 +502,7 @@ let adminListCache = null;
 let adminCodesCache = null;
 let adminLogCache = null;
 let currentAccessCode = '';
+const ACTIVE_SESSION_KEY = 'srais_active_access_code';
 
 // ── PROGRESS PERSISTENCE (resume where you left off) ──────────────
 function progressKey(code){ return 'srais_progress_' + code; }
@@ -545,6 +546,7 @@ function logout(){
   // code, so logging out does not lose anything - logging back in with the
   // same code resumes exactly where this left off.
   currentAccessCode = '';
+  try { sessionStorage.removeItem(ACTIVE_SESSION_KEY); } catch (e) {}
   resetSessionState();
   document.getElementById('logoutBtn').style.display = 'none';
   document.getElementById('profileBtn').style.display = 'none';
@@ -577,6 +579,18 @@ function openActionHub(){
 }
 
 // ── ACCESS: EMAIL FIRST ─────────────────────────────────────────
+// Store the active code only for this browser tab. Returning from Action Hub
+// or refreshing SRAIS restores the session; Log Out clears it.
+function restoreSession(){
+  let code = '';
+  try { code = sessionStorage.getItem(ACTIVE_SESSION_KEY) || ''; } catch (e) {}
+  if (!code) return;
+  document.getElementById('accessCard').classList.add('hidden');
+  document.getElementById('codeEntryCard').classList.remove('hidden');
+  document.getElementById('fAccessCode').value = code;
+  checkAccessCode();
+}
+
 function startEmailLookup(){
   const email = document.getElementById('fReqEmail').value.trim();
   const notice = document.getElementById('requestAccessNotice');
@@ -670,6 +684,7 @@ function checkAccessCode(){
       if (!res.valid) { notice.innerHTML = '<div class="notice err">Access code not recognised. Check the code and try again.</div>'; return; }
       notice.innerHTML = '';
       currentAccessCode = code;
+      try { sessionStorage.setItem(ACTIVE_SESSION_KEY, code); } catch (e) {}
       document.getElementById('logoutBtn').style.display = 'inline-block';
       document.getElementById('profileBtn').style.display = 'inline-block';
       if (res.submission && res.submission.found) {
@@ -1613,6 +1628,7 @@ function submitResponses(){
     .then(() => { notice.innerHTML = '<div class="notice ok">Your responses were sent. We could not verify server confirmation here, so your local draft has been kept safely.</div>'; })
     .catch(() => { notice.innerHTML = '<div class="notice err">Submission failed. Please use "Download as Excel" and send the file manually.</div>'; });
 }
+restoreSession();
 </script>
 </body>
 </html>

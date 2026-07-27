@@ -455,6 +455,7 @@ footer{text-align:center;font-size:11.5px;color:var(--muted);padding:30px 0}
       <div class="sec-desc">Click a stage to expand or collapse it.</div>
       <div id="mySubTableWrap"></div>
       <div class="btn-row">
+        <button class="primary" onclick="downloadMySubmissionPdf()">Download PDF report</button>
         <button onclick="downloadMySubmission()">Download as Excel</button>
         <button class="primary" onclick="openActionHub()">Open Action Hub</button>
       </div>
@@ -832,6 +833,26 @@ let mySubRawRows = [];
 function downloadMySubmission(){
   const rows = [['Stage','Type','Question','Response','Score'], ...mySubRawRows.map(r => [r[0], r[1], r[3], r[4], r[5]])];
   downloadRowsAsExcel(rows, `SRAIS_${(meta.innovator || 'submission').replace(/[^a-z0-9]+/gi,'_')}`);
+}
+
+function downloadMySubmissionPdf(){
+  const report = window.open('', '_blank');
+  if (!report) { alert('Allow pop-ups to create your PDF report.'); return; }
+  const groups = [];
+  mySubRawRows.forEach(row => {
+    let group = groups.find(item => item.stage === row[0]);
+    if (!group) { group = { stage: row[0], rows: [] }; groups.push(group); }
+    group.rows.push(row);
+  });
+  const stageSummary = groups.map(group => `<div class="stage-stat"><span>${escapeHtml(group.stage)}</span><b>${group.rows.length}</b><small>responses</small></div>`).join('');
+  const stageDetail = groups.map(group => `<section class="stage"><h2>${escapeHtml(group.stage)}</h2><p class="stage-note">${group.rows.length} recorded responses</p><table><thead><tr><th>Type</th><th>Question</th><th>Response</th><th>Score</th></tr></thead><tbody>${group.rows.map(row => `<tr><td>${escapeHtml(row[1])}</td><td>${escapeHtml(row[3])}</td><td>${escapeHtml(row[4])}</td><td>${escapeHtml(row[5])}</td></tr>`).join('')}</tbody></table></section>`).join('');
+  const rai = document.getElementById('mySubRai').textContent || '-';
+  const sai = document.getElementById('mySubSai').textContent || '-';
+  const date = document.getElementById('mySubDate').textContent || new Date().toLocaleString();
+  report.document.write(`<!doctype html><html><head><title>SRAIS Assessment Report</title><style>@page{size:A4;margin:13mm}*{box-sizing:border-box}body{margin:0;color:#102e52;font:10px/1.4 Arial,sans-serif}.cover{padding:28px;background:linear-gradient(135deg,#102e52,#1e4b90);color:#fff;border-radius:14px}.eyebrow{font-size:9px;font-weight:700;letter-spacing:1.3px;color:#a9c6ff}.cover h1{font-size:27px;margin:7px 0}.cover p{margin:0;color:#dce8ff}.scores{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:18px 0}.score{padding:16px;border:1px solid #dce5f2;border-radius:11px;background:#f7faff}.score span,.stage-stat span{display:block;color:#61738d;font-size:9px;font-weight:700;letter-spacing:.8px}.score b{display:block;margin-top:4px;font-size:28px;color:#2f66f3}.section-title{margin:22px 0 9px;font-size:16px}.stage-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.stage-stat{padding:10px;border:1px solid #dce5f2;border-radius:9px;background:#fff}.stage-stat b{display:inline-block;margin-top:4px;font-size:20px}.stage-stat small{margin-left:4px;color:#61738d}.stage{break-before:page;margin-top:4px}.stage:first-of-type{break-before:auto}.stage h2{margin:0;color:#102e52;font-size:18px}.stage-note{margin:3px 0 11px;color:#61738d}table{width:100%;border-collapse:collapse;font-size:9px}th{padding:7px;background:#102e52;color:#fff;text-align:left}td{padding:7px;border-bottom:1px solid #dce5f2;vertical-align:top}th:nth-child(1){width:12%}th:nth-child(2){width:56%}th:nth-child(3){width:24%}th:nth-child(4){width:8%}.footer{margin-top:20px;border-top:1px solid #dce5f2;padding-top:9px;color:#61738d;font-size:8px}@media print{body{print-color-adjust:exact;-webkit-print-color-adjust:exact}}</style></head><body><section class="cover"><div class="eyebrow">SRAIS ASSESSMENT REPORT</div><h1>Responsible AI readiness assessment</h1><p>${escapeHtml(meta.innovator||'Innovator')} - ${escapeHtml(meta.solution||'AI solution')}<br>Respondent: ${escapeHtml(meta.respondent||'Not recorded')}<br>Submitted: ${escapeHtml(date)}</p></section><section class="scores"><div class="score"><span>FINAL RESPONSIBLE AI SCORE</span><b>${escapeHtml(rai)}</b></div><div class="score"><span>FINAL SCALABILITY SCORE</span><b>${escapeHtml(sai)}</b></div></section><h2 class="section-title">Lifecycle-stage response summary</h2><section class="stage-summary">${stageSummary}</section><h2 class="section-title">Assessment record by stage</h2>${stageDetail}<p class="footer">SRAIS Tool - This report records submitted assessment responses. It is intended to support responsible-AI planning and review.</p></body></html>`);
+  report.document.close();
+  report.focus();
+  setTimeout(() => report.print(), 300);
 }
 
 // ── EDIT PROFILE ─────────────────────────────────────────────────

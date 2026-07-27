@@ -509,6 +509,8 @@ let adminCodesCache = null;
 let adminLogCache = null;
 let currentAccessCode = '';
 const ACTIVE_SESSION_KEY = 'srais_active_access_code';
+const ACTIVE_SESSION_SNAPSHOT_KEY = 'srais_active_session_snapshot';
+let loginInFlight = null;
 
 // ── PROGRESS PERSISTENCE (resume where you left off) ──────────────
 function progressKey(code){ return 'srais_progress_' + code; }
@@ -552,7 +554,7 @@ function logout(){
   // code, so logging out does not lose anything - logging back in with the
   // same code resumes exactly where this left off.
   currentAccessCode = '';
-  try { sessionStorage.removeItem(ACTIVE_SESSION_KEY); } catch (e) {}
+  try { sessionStorage.removeItem(ACTIVE_SESSION_KEY); sessionStorage.removeItem(ACTIVE_SESSION_SNAPSHOT_KEY); } catch (e) {}
   resetSessionState();
   document.getElementById('logoutBtn').style.display = 'none';
   document.getElementById('profileBtn').style.display = 'none';
@@ -591,10 +593,36 @@ function restoreSession(){
   let code = '';
   try { code = sessionStorage.getItem(ACTIVE_SESSION_KEY) || ''; } catch (e) {}
   if (!code) return;
+  document.getElementById('fAccessCode').value = code;
+  const snapshot = loadSessionSnapshot(code);
+  if (snapshot) {
+    // Render the user's already-known session immediately, then validate it
+    // quietly in the background. This avoids waiting for Apps Script on every
+    // return from Action Hub or ordinary page refresh.
+    document.getElementById('accessCard').classList.add('hidden');
+    document.getElementById('codeEntryCard').classList.add('hidden');
+    applyLoginResult(code, snapshot, true);
+    checkAccessCode(true);
+    return;
+  }
   document.getElementById('accessCard').classList.add('hidden');
   document.getElementById('codeEntryCard').classList.remove('hidden');
-  document.getElementById('fAccessCode').value = code;
   checkAccessCode();
+}
+
+function saveSessionSnapshot(code, result){
+  try { sessionStorage.setItem(ACTIVE_SESSION_SNAPSHOT_KEY, JSON.stringify({ code: code, savedAt: Date.now(), result: result })); } catch (e) {}
+}
+
+function loadSessionSnapshot(code){
+  try {
+    const raw = sessionStorage.getItem(ACTIVE_SESSION_SNAPSHOT_KEY);
+    const data = raw ? JSON.parse(raw) : null;
+    // A short cache makes navigation feel instant without treating old access
+    // information as a durable login session.
+    if (!data || data.code !== code || !data.result || (Date.now() - data.savedAt) > 10 * 60 * 1000) return null;
+    return data.result;
+  } catch (e) { return null; }
 }
 
 function startEmailLookup(){
@@ -678,30 +706,41 @@ function showCodeEntry(){
   document.getElementById('fAccessCode').focus();
 }
 
-function checkAccessCode(){
+function checkAccessCode(silent){
   const code = document.getElementById('fAccessCode').value.trim();
   const notice = document.getElementById('accessNotice');
   if (!code) { notice.innerHTML = '<div class="notice err">Enter your access code.</div>'; return; }
   if (!APPS_SCRIPT_URL) { notice.innerHTML = '<div class="notice err">Access codes are not active yet. Contact your administrator.</div>'; return; }
-  notice.innerHTML = '<div class="notice">Checking code...</div>';
-  fetch(`${APPS_SCRIPT_URL}?action=loginCheck&code=${encodeURIComponent(code)}`)
+  if (loginInFlight) return loginInFlight;
+  if (!silent) notice.innerHTML = '<div class="notice">Checking code...</div>';
+  loginInFlight = fetch(`${APPS_SCRIPT_URL}?action=loginCheck&code=${encodeURIComponent(code)}`)
     .then(r => r.json())
     .then(res => {
-      if (!res.valid) { notice.innerHTML = '<div class="notice err">Access code not recognised. Check the code and try again.</div>'; return; }
-      notice.innerHTML = '';
-      currentAccessCode = code;
-      try { sessionStorage.setItem(ACTIVE_SESSION_KEY, code); } catch (e) {}
-      document.getElementById('logoutBtn').style.display = 'inline-block';
-      document.getElementById('profileBtn').style.display = 'inline-block';
-      if (res.submission && res.submission.found) {
-        // Already submitted - show what was submitted instead of starting over.
-        document.getElementById('codeEntryCard').classList.add('hidden');
-        showMySubmission(res.submission);
+      if (!res.valid) {
+        if (silent) { logout(); document.getElementById('requestAccessNotice').innerHTML = '<div class="notice err">Your saved session has expired. Please sign in again.</div>'; }
+        else notice.innerHTML = '<div class="notice err">Access code not recognised. Check the code and try again.</div>';
         return;
       }
-      continueLoginFlow(code, res);
+      applyLoginResult(code, res, silent);
     })
-    .catch(() => { notice.innerHTML = '<div class="notice err">Could not verify the code right now. Try again shortly.</div>'; });
+    .catch(() => { if (!silent) notice.innerHTML = '<div class="notice err">Could not verify the code right now. Try again shortly.</div>'; })
+    .finally(() => { loginInFlight = null; });
+  return loginInFlight;
+}
+
+function applyLoginResult(code, res, silent){
+  if (!silent) document.getElementById('accessNotice').innerHTML = '';
+  currentAccessCode = code;
+  try { sessionStorage.setItem(ACTIVE_SESSION_KEY, code); } catch (e) {}
+  saveSessionSnapshot(code, res);
+  document.getElementById('logoutBtn').style.display = 'inline-block';
+  document.getElementById('profileBtn').style.display = 'inline-block';
+  if (res.submission && res.submission.found) {
+    document.getElementById('codeEntryCard').classList.add('hidden');
+    showMySubmission(res.submission);
+    return;
+  }
+  continueLoginFlow(code, res);
 }
 
 function continueLoginFlow(code, res){

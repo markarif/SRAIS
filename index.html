@@ -254,6 +254,7 @@ footer{text-align:center;font-size:11.5px;color:var(--muted);padding:30px 0}
       <button class="tab-btn" id="tabBtn-codes" onclick="showAdminTab('codes')">Access Codes</button>
       <button class="tab-btn" id="tabBtn-log" onclick="showAdminTab('log')">Access Log</button>
       <button class="tab-btn" id="tabBtn-analytics" onclick="showAdminTab('analytics')">Analytics</button>
+      <button class="tab-btn" id="tabBtn-actionhub" onclick="showAdminTab('actionhub')">Action Hub</button>
       <button class="tab-btn" id="tabBtn-preview" onclick="showAdminTab('preview')">Preview Questions</button>
     </div>
 
@@ -289,6 +290,11 @@ footer{text-align:center;font-size:11.5px;color:var(--muted);padding:30px 0}
     <div id="adminTab-analytics" class="admin-tab hidden">
       <div class="sec-desc"><a href="#" onclick="loadAdminAnalytics(true); return false;">Refresh</a></div>
       <div id="adminAnalyticsWrap"></div>
+    </div>
+
+    <div id="adminTab-actionhub" class="admin-tab hidden">
+      <div class="sec-desc">Portfolio view of Action Hub plans, task progress, overdue actions, and submitted evidence. <a href="#" onclick="loadAdminActionHub(true); return false;">Refresh</a></div>
+      <div id="adminActionHubWrap"></div>
     </div>
 
     <div id="adminTab-preview" class="admin-tab hidden">
@@ -889,13 +895,14 @@ function loadAdminList(force){
 }
 
 function showAdminTab(tab){
-  ['responses','codes','log','analytics','preview'].forEach(t => {
+  ['responses','codes','log','analytics','actionhub','preview'].forEach(t => {
     document.getElementById('adminTab-' + t).classList.toggle('hidden', t !== tab);
     document.getElementById('tabBtn-' + t).classList.toggle('active', t === tab);
   });
   if (tab === 'codes') loadAdminCodes();
   if (tab === 'log') loadAdminLog();
   if (tab === 'analytics') loadAdminAnalytics();
+  if (tab === 'actionhub') loadAdminActionHub();
   if (tab === 'preview') renderPreview();
 }
 
@@ -1187,6 +1194,25 @@ function renderAnalytics(rows){
 }
 
 // ── ASSESSMENT ───────────────────────────────────────────────────
+function loadAdminActionHub(force){
+  const wrap = document.getElementById('adminActionHubWrap');
+  wrap.innerHTML = '<div class="notice">Loading Action Hub portfolio...</div>';
+  fetch(`${APPS_SCRIPT_URL}?action=adminActionHubOverview&key=${encodeURIComponent(adminKey)}`)
+    .then(r => r.json()).then(res => {
+      if (res.error) { wrap.innerHTML = `<div class="notice err">${escapeHtml(res.error)}</div>`; return; }
+      renderAdminActionHub(res.rows || []);
+    }).catch(() => { wrap.innerHTML = '<div class="notice err">Could not load Action Hub data.</div>'; });
+}
+function renderAdminActionHub(rows){
+  const wrap = document.getElementById('adminActionHubWrap');
+  if (!rows.length) { wrap.innerHTML = '<div class="notice">No completed assessments are available yet.</div>'; return; }
+  const totals = rows.reduce((a,r) => ({tasks:a.tasks+r.tasks, complete:a.complete+r.complete, overdue:a.overdue+r.overdue, evidence:a.evidence+r.evidence}), {tasks:0,complete:0,overdue:0,evidence:0});
+  let html = `<div class="summary-box"><div class="stat-tile"><div class="label">Actions</div><div class="value">${totals.tasks}</div></div><div class="stat-tile good"><div class="label">Complete</div><div class="value">${totals.complete}</div></div><div class="stat-tile ${totals.overdue?'low':'good'}"><div class="label">Overdue</div><div class="value">${totals.overdue}</div></div><div class="stat-tile"><div class="label">Evidence items</div><div class="value">${totals.evidence}</div></div></div>`;
+  html += '<table><thead><tr><th>Innovator</th><th>Solution</th><th>RAI</th><th>SAI</th><th>Actions</th><th>Complete</th><th>In progress</th><th>Overdue</th><th>Evidence</th></tr></thead><tbody>';
+  rows.forEach(r => { html += `<tr><td>${escapeHtml(r.innovator)}</td><td>${escapeHtml(r.solution)}</td><td>${Number(r.rai).toFixed(1)}%</td><td>${Number(r.sai).toFixed(1)}%</td><td>${r.tasks}</td><td>${r.complete}</td><td>${r.inProgress}</td><td>${r.overdue}</td><td>${r.evidence}</td></tr>`; });
+  wrap.innerHTML = html + '</tbody></table>';
+}
+
 function startAssessment(){
   meta.innovator = document.getElementById('fInnovator').value.trim();
   meta.solution = document.getElementById('fSolution').value.trim();

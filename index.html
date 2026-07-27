@@ -450,7 +450,7 @@ footer{text-align:center;font-size:11.5px;color:var(--muted);padding:30px 0}
       <div id="mySubTableWrap"></div>
       <div class="btn-row">
         <button onclick="downloadMySubmission()">Download as Excel</button>
-        <span></span>
+        <button class="primary" onclick="openActionHub()">Open Action Hub</button>
       </div>
       <div class="btn-row">
         <button onclick="showEditProfile()">Edit Profile</button>
@@ -487,6 +487,8 @@ const SAI_GRAND_MAX = 559;
 
 // Configure this after deploying the Google Apps Script Web App (see ACAII_SRAIS_AppsScript.js)
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyoSGJwLG7XKIIPyfJB6p0CWFAh76Jk2kK7EenDaX8xblQ95OG_LxmTViJLzpfj-LHUyw/exec";
+// Set this to the published GitHub Pages URL for srais-action-hub.html.
+const ACTION_HUB_URL = '';
 
 let currentStage = 0;
 let answers = SRAIS_DATA.map(s => ({
@@ -562,6 +564,16 @@ function logout(){
 
 function clearProgress(code){
   try { localStorage.removeItem(progressKey(code)); } catch (e) {}
+}
+
+function openActionHub(){
+  if (!ACTION_HUB_URL) { alert('Action Hub is not configured yet. Set ACTION_HUB_URL after publishing the Action Hub page.'); return; }
+  if (!currentAccessCode) { alert('Log in with your access code before opening Action Hub.'); return; }
+  fetch(`${APPS_SCRIPT_URL}?action=createActionHubToken&code=${encodeURIComponent(currentAccessCode)}`)
+    .then(r => r.json()).then(res => {
+      if (!res.ok) throw new Error(res.error || 'Could not open Action Hub.');
+      window.location.href = ACTION_HUB_URL + '?token=' + encodeURIComponent(res.token);
+    }).catch(err => alert(err.message || 'Could not open Action Hub.'));
 }
 
 // ── ACCESS: EMAIL FIRST ─────────────────────────────────────────

@@ -229,11 +229,12 @@ footer{text-align:center;font-size:11.5px;color:var(--muted);padding:30px 0}
     </div>
 
     <div id="adminTab-responses" class="admin-tab">
+      <div class="sec-desc"><a href="#" onclick="loadAdminList(true); return false;">Refresh</a></div>
       <div id="adminTableWrap"></div>
     </div>
 
     <div id="adminTab-codes" class="admin-tab hidden">
-      <div class="sec-desc">Self-signup codes are active immediately. Deactivate a code here to revoke access, or add a new code directly.</div>
+      <div class="sec-desc">Self-signup codes are active immediately. Deactivate a code here to revoke access, or add a new code directly. <a href="#" onclick="loadAdminCodes(true); return false;">Refresh</a></div>
       <div id="adminCodesWrap"></div>
       <div class="qgroup-title">Add a Code Directly</div>
       <form onsubmit="addCode(); return false;">
@@ -252,11 +253,12 @@ footer{text-align:center;font-size:11.5px;color:var(--muted);padding:30px 0}
     </div>
 
     <div id="adminTab-log" class="admin-tab hidden">
-      <div class="sec-desc">Most recent access attempts first, valid and invalid.</div>
+      <div class="sec-desc">Most recent access attempts first, valid and invalid. <a href="#" onclick="loadAdminLog(true); return false;">Refresh</a></div>
       <div id="adminLogWrap"></div>
     </div>
 
     <div id="adminTab-analytics" class="admin-tab hidden">
+      <div class="sec-desc"><a href="#" onclick="loadAdminAnalytics(true); return false;">Refresh</a></div>
       <div id="adminAnalyticsWrap"></div>
     </div>
 
@@ -464,6 +466,9 @@ let answers = SRAIS_DATA.map(s => ({
 }));
 let meta = { innovator: "", solution: "", respondent: "" };
 let adminKey = '';
+let adminListCache = null;
+let adminCodesCache = null;
+let adminLogCache = null;
 let currentAccessCode = '';
 
 // ── PROGRESS PERSISTENCE (resume where you left off) ──────────────
@@ -787,9 +792,28 @@ function adminLogin(){
       notice.innerHTML = '';
       document.getElementById('adminLoginCard').classList.add('hidden');
       document.getElementById('adminViewCard').classList.remove('hidden');
-      renderAdminTable(res.rows || []);
+      adminListCache = res.rows || [];
+      renderAdminTable(adminListCache);
     })
     .catch(() => { notice.innerHTML = '<div class="notice err">Could not load responses right now.</div>'; });
+}
+
+// Shared cache for the "Submissions" data reused by both the Responses tab
+// and Analytics tab, since both were separately hitting the slow Apps Script
+// adminList endpoint on every tab switch. Pass force=true to bypass it.
+function loadAdminList(force){
+  const wrap = document.getElementById('adminTableWrap');
+  if (adminListCache && !force) { renderAdminTable(adminListCache); return Promise.resolve(adminListCache); }
+  wrap.innerHTML = '<div class="notice">Loading...</div>';
+  return fetch(`${APPS_SCRIPT_URL}?action=adminList&key=${encodeURIComponent(adminKey)}`)
+    .then(r => r.json())
+    .then(res => {
+      if (res.error) { wrap.innerHTML = `<div class="notice err">${res.error}</div>`; return null; }
+      adminListCache = res.rows || [];
+      renderAdminTable(adminListCache);
+      return adminListCache;
+    })
+    .catch(() => { wrap.innerHTML = '<div class="notice err">Could not load responses right now.</div>'; return null; });
 }
 
 function showAdminTab(tab){
@@ -930,34 +954,52 @@ function viewDetail(ts, innovator){
     .then(r => r.json())
     .then(res => {
       if (res.error) { wrap.innerHTML = `<div class="notice err">${res.error}</div>`; return; }
-      let html = '<table><thead><tr><th>Stage</th><th>Type</th><th>Principle</th><th>Question</th><th>Response</th><th>Score</th></tr></thead><tbody>';
-      (res.rows || []).forEach(r => { html += `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td><td>${r[5]}</td></tr>`; });
-      html += '</tbody></table>';
-      wrap.innerHTML = html;
+      renderDetailByStage(wrap, res.rows || []);
     })
     .catch(() => { wrap.innerHTML = '<div class="notice err">Could not load detail.</div>'; });
+}
+function renderDetailByStage(wrap, rows){
+  if (!rows.length) { wrap.innerHTML = '<div class="notice">No response detail found.</div>'; return; }
+  const byStage = [];
+  const stageIndex = {};
+  rows.forEach(r => {
+    const stage = r[0];
+    if (!(stage in stageIndex)) { stageIndex[stage] = byStage.length; byStage.push({ stage: stage, rows: [] }); }
+    byStage[stageIndex[stage]].rows.push(r);
+  });
+  let html = '<div class="btn-row" style="margin-bottom:10px"><span></span>'
+    + '<span><a href="#" onclick="document.querySelectorAll(\'#adminDetailWrap .pv-stage\').forEach(el=>el.classList.add(\'open\'));return false;">Expand all</a>'
+    + ' &middot; <a href="#" onclick="document.querySelectorAll(\'#adminDetailWrap .pv-stage\').forEach(el=>el.classList.remove(\'open\'));return false;">Collapse all</a></span></div>';
+  byStage.forEach((sec, i) => {
+    html += `<div class="pv-stage${i === 0 ? ' open' : ''}">`
+      + `<div class="pv-stage-header" onclick="this.closest('.pv-stage').classList.toggle('open')">`
+      + `<div><span class="pv-stage-chevron">&#9656;</span> <span class="pv-stage-title">${sec.stage}</span></div>`
+      + `<div class="pv-stage-count">${sec.rows.length} question${sec.rows.length === 1 ? '' : 's'}</div></div>`
+      + '<div class="pv-stage-body"><table><thead><tr><th>Type</th><th>Principle</th><th>Question</th><th>Response</th><th>Score</th></tr></thead><tbody>';
+    sec.rows.forEach(r => { html += `<tr><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td><td>${r[5]}</td></tr>`; });
+    html += '</tbody></table></div></div>';
+  });
+  wrap.innerHTML = html;
 }
 function deleteSubmission(ts, innovator){
   if (!confirm('Delete this submission and all of its responses? This cannot be undone.')) return;
   fetch(`${APPS_SCRIPT_URL}?action=adminDeleteSubmission&key=${encodeURIComponent(adminKey)}&timestamp=${ts}&innovator=${innovator}`)
     .then(r => r.json())
-    .then(() => {
-      fetch(`${APPS_SCRIPT_URL}?action=adminList&key=${encodeURIComponent(adminKey)}`)
-        .then(r => r.json())
-        .then(res => renderAdminTable(res.rows || []));
-    })
+    .then(() => loadAdminList(true))
     .catch(() => { alert('Could not delete the submission right now.'); });
 }
 
 // ── ADMIN: ACCESS CODES ─────────────────────────────────────────
-function loadAdminCodes(){
+function loadAdminCodes(force){
   const wrap = document.getElementById('adminCodesWrap');
+  if (adminCodesCache && !force) { renderCodesTable(adminCodesCache); return; }
   wrap.innerHTML = '<div class="notice">Loading codes...</div>';
   fetch(`${APPS_SCRIPT_URL}?action=adminListCodes&key=${encodeURIComponent(adminKey)}`)
     .then(r => r.json())
     .then(res => {
       if (res.error) { wrap.innerHTML = `<div class="notice err">${res.error}</div>`; return; }
-      renderCodesTable(res.rows || []);
+      adminCodesCache = res.rows || [];
+      renderCodesTable(adminCodesCache);
     })
     .catch(() => { wrap.innerHTML = '<div class="notice err">Could not load access codes.</div>'; });
 }
@@ -977,7 +1019,7 @@ function renderCodesTable(rows){
 function toggleCode(code, setActive){
   fetch(`${APPS_SCRIPT_URL}?action=adminSetCodeActive&key=${encodeURIComponent(adminKey)}&code=${code}&active=${setActive}`)
     .then(r => r.json())
-    .then(() => loadAdminCodes())
+    .then(() => loadAdminCodes(true))
     .catch(() => { alert('Could not update the code right now.'); });
 }
 function addCode(){
@@ -995,40 +1037,40 @@ function addCode(){
       document.getElementById('fNewCodeInnovator').value = '';
       document.getElementById('fNewCodeSolution').value = '';
       document.getElementById('fNewCodeValue').value = '';
-      loadAdminCodes();
+      loadAdminCodes(true);
     })
     .catch(() => { notice.innerHTML = '<div class="notice err">Could not add the code right now.</div>'; });
 }
 
 // ── ADMIN: ACCESS LOG ───────────────────────────────────────────
-function loadAdminLog(){
+function loadAdminLog(force){
   const wrap = document.getElementById('adminLogWrap');
+  if (adminLogCache && !force) { renderAdminLog(adminLogCache); return; }
   wrap.innerHTML = '<div class="notice">Loading log...</div>';
   fetch(`${APPS_SCRIPT_URL}?action=adminAccessLog&key=${encodeURIComponent(adminKey)}`)
     .then(r => r.json())
     .then(res => {
       if (res.error) { wrap.innerHTML = `<div class="notice err">${res.error}</div>`; return; }
-      const rows = res.rows || [];
-      if (!rows.length) { wrap.innerHTML = '<div class="notice">No access attempts logged yet.</div>'; return; }
-      let html = '<table><thead><tr><th>Timestamp</th><th>Code</th><th>Result</th><th>Innovator</th></tr></thead><tbody>';
-      rows.forEach(r => { html += `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`; });
-      html += '</tbody></table>';
-      wrap.innerHTML = html;
+      adminLogCache = res.rows || [];
+      renderAdminLog(adminLogCache);
     })
     .catch(() => { wrap.innerHTML = '<div class="notice err">Could not load the access log.</div>'; });
 }
+function renderAdminLog(rows){
+  const wrap = document.getElementById('adminLogWrap');
+  if (!rows.length) { wrap.innerHTML = '<div class="notice">No access attempts logged yet.</div>'; return; }
+  let html = '<table><thead><tr><th>Timestamp</th><th>Code</th><th>Result</th><th>Innovator</th></tr></thead><tbody>';
+  rows.forEach(r => { html += `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`; });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
 
 // ── ADMIN: ANALYTICS ─────────────────────────────────────────────
-function loadAdminAnalytics(){
+function loadAdminAnalytics(force){
   const wrap = document.getElementById('adminAnalyticsWrap');
+  if (adminListCache && !force) { renderAnalytics(adminListCache); return; }
   wrap.innerHTML = '<div class="notice">Loading analytics...</div>';
-  fetch(`${APPS_SCRIPT_URL}?action=adminList&key=${encodeURIComponent(adminKey)}`)
-    .then(r => r.json())
-    .then(res => {
-      if (res.error) { wrap.innerHTML = `<div class="notice err">${res.error}</div>`; return; }
-      renderAnalytics(res.rows || []);
-    })
-    .catch(() => { wrap.innerHTML = '<div class="notice err">Could not load analytics.</div>'; });
+  loadAdminList(force).then(rows => { if (rows) renderAnalytics(rows); });
 }
 function renderAnalytics(rows){
   const wrap = document.getElementById('adminAnalyticsWrap');

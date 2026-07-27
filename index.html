@@ -939,27 +939,44 @@ function renderAdminTable(rows){
   const wrap = document.getElementById('adminTableWrap');
   if (!rows.length) { wrap.innerHTML = '<div class="notice">No responses yet.</div>'; return; }
   let html = '<table><thead><tr><th>Date</th><th>Innovator</th><th>Solution</th><th>Respondent</th><th>RAI %</th><th>SAI %</th><th></th><th></th></tr></thead><tbody>';
-  rows.forEach(r => {
+  rows.forEach((r, i) => {
     html += `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${normalizePct(r[4]).toFixed(1)}%</td><td>${normalizePct(r[5]).toFixed(1)}%</td>`
-      + `<td><button onclick="viewDetail('${encodeURIComponent(r[0])}','${encodeURIComponent(r[1])}')">View</button></td>`
-      + `<td><button onclick="deleteSubmission('${encodeURIComponent(r[0])}','${encodeURIComponent(r[1])}')">Delete</button></td></tr>`;
+      + `<td><button id="viewBtn-${i}" onclick="viewDetail(${i})">View</button></td>`
+      + `<td><button onclick="deleteSubmission('${encodeURIComponent(r[0])}','${encodeURIComponent(r[1])}')">Delete</button></td></tr>`
+      + `<tr id="detailRow-${i}" class="hidden"><td colspan="8"><div id="detailBody-${i}"></div></td></tr>`;
   });
-  html += '</tbody></table><div id="adminDetailWrap"></div>';
+  html += '</tbody></table>';
   wrap.innerHTML = html;
 }
-function viewDetail(ts, innovator){
-  const wrap = document.getElementById('adminDetailWrap');
-  wrap.innerHTML = '<div class="notice">Loading detail...</div>';
-  fetch(`${APPS_SCRIPT_URL}?action=adminDetail&key=${encodeURIComponent(adminKey)}&timestamp=${ts}&innovator=${innovator}`)
-    .then(r => r.json())
+// Each submission's detail expands inline, directly under its own row, so it's
+// always unambiguous which innovator/solution the expanded answers belong to
+// (rather than one shared panel at the bottom of the whole table).
+function viewDetail(idx){
+  const detailRow = document.getElementById('detailRow-' + idx);
+  const btn = document.getElementById('viewBtn-' + idx);
+  if (!detailRow.classList.contains('hidden')) {
+    detailRow.classList.add('hidden');
+    btn.textContent = 'View';
+    return;
+  }
+  detailRow.classList.remove('hidden');
+  btn.textContent = 'Hide';
+  const body = document.getElementById('detailBody-' + idx);
+  if (body.dataset.loaded) return;
+  const r = adminListCache[idx];
+  body.innerHTML = '<div class="notice">Loading detail...</div>';
+  fetch(`${APPS_SCRIPT_URL}?action=adminDetail&key=${encodeURIComponent(adminKey)}&timestamp=${encodeURIComponent(r[0])}&innovator=${encodeURIComponent(r[1])}`)
+    .then(res => res.json())
     .then(res => {
-      if (res.error) { wrap.innerHTML = `<div class="notice err">${res.error}</div>`; return; }
-      renderDetailByStage(wrap, res.rows || []);
+      if (res.error) { body.innerHTML = `<div class="notice err">${res.error}</div>`; return; }
+      body.dataset.loaded = '1';
+      renderDetailByStage(body, r, res.rows || []);
     })
-    .catch(() => { wrap.innerHTML = '<div class="notice err">Could not load detail.</div>'; });
+    .catch(() => { body.innerHTML = '<div class="notice err">Could not load detail.</div>'; });
 }
-function renderDetailByStage(wrap, rows){
-  if (!rows.length) { wrap.innerHTML = '<div class="notice">No response detail found.</div>'; return; }
+function renderDetailByStage(wrap, submissionRow, rows){
+  const label = `<div class="sec-desc"><b>${submissionRow[1]}</b> &middot; ${submissionRow[2]} &middot; Respondent: ${submissionRow[3]} &middot; Submitted ${submissionRow[0]}</div>`;
+  if (!rows.length) { wrap.innerHTML = label + '<div class="notice">No response detail found.</div>'; return; }
   const byStage = [];
   const stageIndex = {};
   rows.forEach(r => {
@@ -967,9 +984,11 @@ function renderDetailByStage(wrap, rows){
     if (!(stage in stageIndex)) { stageIndex[stage] = byStage.length; byStage.push({ stage: stage, rows: [] }); }
     byStage[stageIndex[stage]].rows.push(r);
   });
-  let html = '<div class="btn-row" style="margin-bottom:10px"><span></span>'
-    + '<span><a href="#" onclick="document.querySelectorAll(\'#adminDetailWrap .pv-stage\').forEach(el=>el.classList.add(\'open\'));return false;">Expand all</a>'
-    + ' &middot; <a href="#" onclick="document.querySelectorAll(\'#adminDetailWrap .pv-stage\').forEach(el=>el.classList.remove(\'open\'));return false;">Collapse all</a></span></div>';
+  if (!wrap.id) wrap.id = 'detailBody-adhoc';
+  const wrapSel = '#' + wrap.id;
+  let html = label + `<div class="btn-row" style="margin-bottom:10px"><span></span>`
+    + `<span><a href="#" onclick="document.querySelectorAll('${wrapSel} .pv-stage').forEach(el=>el.classList.add('open'));return false;">Expand all</a>`
+    + ` &middot; <a href="#" onclick="document.querySelectorAll('${wrapSel} .pv-stage').forEach(el=>el.classList.remove('open'));return false;">Collapse all</a></span></div>`;
   byStage.forEach((sec, i) => {
     html += `<div class="pv-stage${i === 0 ? ' open' : ''}">`
       + `<div class="pv-stage-header" onclick="this.closest('.pv-stage').classList.toggle('open')">`

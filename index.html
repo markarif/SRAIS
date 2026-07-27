@@ -554,7 +554,9 @@ function logout(){
   });
   document.getElementById('fAccessCode').value = '';
   document.getElementById('fReqEmail').value = '';
-  document.getElementById('accessCard').classList.remove('hidden');
+  const accessCard = document.getElementById('accessCard');
+  accessCard.classList.remove('hidden');
+  accessCard.style.removeProperty('display');
   window.scrollTo(0,0);
 }
 
@@ -699,7 +701,11 @@ function continueLoginFlow(code, res){
 
 // ── MY SUBMISSION (already completed) ─────────────────────────────
 function showMySubmission(subRes){
-  document.getElementById('accessCard').classList.add('hidden');
+  // Keep the welcome panel out of the document flow even if a cached or
+  // custom stylesheet has a more specific display rule for #accessCard.
+  const accessCard = document.getElementById('accessCard');
+  accessCard.classList.add('hidden');
+  accessCard.style.display = 'none';
   document.getElementById('codeEntryCard').classList.add('hidden');
   const s = subRes.summary;
   meta = { innovator: s.innovator, solution: s.solution, respondent: s.respondent };
@@ -808,7 +814,9 @@ function backToAccess(){
   document.getElementById('adminViewCard').classList.add('hidden');
   document.getElementById('codeEntryCard').classList.add('hidden');
   document.getElementById('myCodesCard').classList.add('hidden');
-  document.getElementById('accessCard').classList.remove('hidden');
+  const accessCard = document.getElementById('accessCard');
+  accessCard.classList.remove('hidden');
+  accessCard.style.removeProperty('display');
 }
 function adminLogin(){
   adminKey = document.getElementById('fAdminKey').value.trim();

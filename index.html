@@ -80,6 +80,8 @@ textarea:focus,input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 
 .divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border)}
 label.field-label{display:block;font-size:12px;font-weight:700;color:var(--navy);margin:16px 0 7px;letter-spacing:.1px}
 .btn-row{display:flex;justify-content:space-between;margin-top:24px;gap:10px}
+.submission-action-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:24px}.submission-action-card{padding:16px;border:1px solid var(--border);border-radius:12px;background:#F8FAFD}.submission-action-card h3{margin:0 0 4px;font-size:14px;color:var(--navy)}.submission-action-card p{min-height:34px;margin:0 0 13px;color:var(--muted);font-size:12px;line-height:1.45}.submission-action-card .action-stack{display:grid;gap:8px}.submission-action-card button{width:100%;padding:10px 12px;font-size:12px}.submission-action-card .logout-action{color:#A83545;border-color:#F0CBD1;background:#FFF8F8}.submission-action-card .logout-action:hover{background:#FFF0F2;border-color:#E6AAB5}
+#mySubHistory,#mySubTableWrap{max-height:360px;overflow-y:auto;padding-right:7px;scrollbar-gutter:stable}#mySubHistory::-webkit-scrollbar,#mySubTableWrap::-webkit-scrollbar{width:8px}#mySubHistory::-webkit-scrollbar-thumb,#mySubTableWrap::-webkit-scrollbar-thumb{background:#C5D4E8;border-radius:10px}
 button{font-family:inherit;font-size:13.5px;font-weight:600;padding:11px 22px;border-radius:var(--radius-xs);border:1.5px solid var(--border);background:var(--white);color:var(--text);cursor:pointer;transition:all .15s}
 button:hover{border-color:var(--muted);background:var(--light)}
 button.primary{background:var(--blue);color:#fff;border-color:var(--blue)}
@@ -138,6 +140,7 @@ footer{text-align:center;font-size:11.5px;color:var(--muted);padding:30px 0}
   .card{padding:19px;border-radius:12px}
   .btn-row{flex-direction:column-reverse}
   .btn-row button{width:100%}
+  .submission-action-grid{grid-template-columns:1fr}
   .summary-box,.tab-row{gap:8px}
   .bar-label{width:110px;font-size:11px}
   .header h1{font-size:14px}
@@ -457,15 +460,19 @@ footer{text-align:center;font-size:11.5px;color:var(--muted);padding:30px 0}
       <div class="qgroup-title">Full Responses by Stage</div>
       <div class="sec-desc">Click a stage to expand or collapse it.</div>
       <div id="mySubTableWrap"></div>
-      <div class="btn-row">
-        <button class="primary" onclick="downloadMySubmissionPdf()">Download PDF report</button>
-        <button onclick="downloadMySubmission()">Download as Excel</button>
-        <button class="primary" onclick="openActionHub()">Open Action Hub</button>
-      </div>
-      <div class="btn-row">
-        <button class="primary" onclick="startNewSubmission()">Start a new submission</button>
-        <button onclick="showEditProfile()">Edit Profile</button>
-        <button class="primary" onclick="logout()">Log Out</button>
+      <div class="submission-action-grid">
+        <section class="submission-action-card">
+          <h3>Assessment report</h3><p>Export a polished PDF or the raw spreadsheet data for this submission.</p>
+          <div class="action-stack"><button class="primary" onclick="downloadMySubmissionPdf()">Download PDF report</button><button onclick="downloadMySubmission()">Download Excel data</button></div>
+        </section>
+        <section class="submission-action-card">
+          <h3>Action Hub</h3><p>Open the improvement plan, action tracker, and evidence linked to this exact submission.</p>
+          <div class="action-stack"><button class="primary" onclick="openActionHub()">Open Action Hub</button></div>
+        </section>
+        <section class="submission-action-card">
+          <h3>Manage assessments</h3><p>Start another assessment for this solution or update your profile details.</p>
+          <div class="action-stack"><button class="primary" onclick="startNewSubmission()">Start new submission</button><button onclick="showEditProfile()">Edit profile</button><button class="logout-action" onclick="logout()">Log out</button></div>
+        </section>
       </div>
     </div>
   </div>

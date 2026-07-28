@@ -447,6 +447,9 @@ footer{text-align:center;font-size:11.5px;color:var(--muted);padding:30px 0}
         <div class="summary-tile good"><div class="label">Final RAI score</div><div class="value" id="mySubRai"></div></div>
         <div class="summary-tile good"><div class="label">Final SAI score</div><div class="value" id="mySubSai"></div></div>
       </div>
+      <div class="qgroup-title">Your assessment submissions</div>
+      <div class="sec-desc">Each submission has its own Action Hub plan, actions, evidence, and PDF report.</div>
+      <div id="mySubHistory"></div>
 
       <div class="qgroup-title">Responsibility / scalability trajectory</div>
       <div id="mySubRubric" style="width:100%;height:420px"></div>
@@ -460,6 +463,7 @@ footer{text-align:center;font-size:11.5px;color:var(--muted);padding:30px 0}
         <button class="primary" onclick="openActionHub()">Open Action Hub</button>
       </div>
       <div class="btn-row">
+        <button class="primary" onclick="startNewSubmission()">Start a new submission</button>
         <button onclick="showEditProfile()">Edit Profile</button>
         <button class="primary" onclick="logout()">Log Out</button>
       </div>
@@ -509,6 +513,7 @@ let adminListCache = null;
 let adminCodesCache = null;
 let adminLogCache = null;
 let currentAccessCode = '';
+let currentSubmissionId = '';
 const ACTIVE_SESSION_KEY = 'srais_active_access_code';
 const ACTIVE_SESSION_SNAPSHOT_KEY = 'srais_active_session_snapshot';
 let loginInFlight = null;
@@ -542,6 +547,7 @@ function normalizePct(v){
 }
 function resetSessionState(){
   currentStage = 0;
+  currentSubmissionId = '';
   answers = SRAIS_DATA.map(s => ({
     rai: s.rai.map(() => (null)),
     sai: s.sai.map(() => (null)),
@@ -580,7 +586,8 @@ function clearProgress(code){
 function openActionHub(){
   if (!ACTION_HUB_URL) { alert('Action Hub is not configured yet. Set ACTION_HUB_URL after publishing the Action Hub page.'); return; }
   if (!currentAccessCode) { alert('Log in with your access code before opening Action Hub.'); return; }
-  fetch(`${APPS_SCRIPT_URL}?action=createActionHubToken&code=${encodeURIComponent(currentAccessCode)}`)
+  if (!currentSubmissionId) { alert('Open a completed submission before opening its Action Hub.'); return; }
+  fetch(`${APPS_SCRIPT_URL}?action=createActionHubToken&code=${encodeURIComponent(currentAccessCode)}&submissionId=${encodeURIComponent(currentSubmissionId)}`)
     .then(r => r.json()).then(res => {
       if (!res.ok) throw new Error(res.error || 'Could not open Action Hub.');
       window.location.href = ACTION_HUB_URL + '?token=' + encodeURIComponent(res.token);
@@ -736,9 +743,9 @@ function applyLoginResult(code, res, silent){
   saveSessionSnapshot(code, res);
   document.getElementById('logoutBtn').style.display = 'inline-block';
   document.getElementById('profileBtn').style.display = 'inline-block';
-  if (res.submission && res.submission.found) {
+      if (res.submission && res.submission.found) {
     document.getElementById('codeEntryCard').classList.add('hidden');
-    showMySubmission(res.submission);
+    showMySubmission(res.submission, res.submissions || []);
     return;
   }
   continueLoginFlow(code, res);
@@ -773,7 +780,7 @@ function continueLoginFlow(code, res){
 }
 
 // ── MY SUBMISSION (already completed) ─────────────────────────────
-function showMySubmission(subRes){
+function showMySubmission(subRes, submissions){
   // Keep the welcome panel out of the document flow even if a cached or
   // custom stylesheet has a more specific display rule for #accessCard.
   const accessCard = document.getElementById('accessCard');
@@ -781,6 +788,7 @@ function showMySubmission(subRes){
   accessCard.style.display = 'none';
   document.getElementById('codeEntryCard').classList.add('hidden');
   const s = subRes.summary;
+  currentSubmissionId = s.submissionId || ('legacy:' + String(s.timestamp));
   meta = { innovator: s.innovator, solution: s.solution, respondent: s.respondent };
   const tag = document.getElementById('respondentTag');
   tag.textContent = s.innovator + " - " + s.solution;
@@ -792,6 +800,7 @@ function showMySubmission(subRes){
   document.getElementById('mySubDate').textContent = new Date(s.timestamp).toLocaleString();
   document.getElementById('mySubRai').textContent = normalizePct(s.finalRaiPct).toFixed(1) + '%';
   document.getElementById('mySubSai').textContent = normalizePct(s.finalSaiPct).toFixed(1) + '%';
+  renderSubmissionHistory(submissions || []);
   renderRubricFromRows('mySubRubric', subRes.rows || []);
 
   mySubRawRows = subRes.rows || [];
@@ -833,6 +842,37 @@ let mySubRawRows = [];
 function downloadMySubmission(){
   const rows = [['Stage','Type','Question','Response','Score'], ...mySubRawRows.map(r => [r[0], r[1], r[3], r[4], r[5]])];
   downloadRowsAsExcel(rows, `SRAIS_${(meta.innovator || 'submission').replace(/[^a-z0-9]+/gi,'_')}`);
+}
+
+function renderSubmissionHistory(submissions){
+  const wrap = document.getElementById('mySubHistory');
+  if (!submissions.length) { wrap.innerHTML = ''; return; }
+  wrap.innerHTML = submissions.map(item => {
+    const active = String(item.submissionId) === String(currentSubmissionId);
+    return `<div style="display:flex;justify-content:space-between;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--light)"><span><strong>${escapeHtml(item.solution || 'Untitled solution')}</strong><br><span style="color:var(--muted);font-size:11.5px">${new Date(item.timestamp).toLocaleString()} · RAI ${normalizePct(item.finalRaiPct).toFixed(1)}% · SAI ${normalizePct(item.finalSaiPct).toFixed(1)}%</span></span><button ${active ? 'disabled' : ''} onclick="viewSubmission('${encodeURIComponent(item.submissionId)}')">${active ? 'Viewing' : 'Open'}</button></div>`;
+  }).join('');
+}
+
+function viewSubmission(encodedId){
+  const submissionId = decodeURIComponent(encodedId);
+  fetch(`${APPS_SCRIPT_URL}?action=getMySubmission&code=${encodeURIComponent(currentAccessCode)}&submissionId=${encodeURIComponent(submissionId)}`)
+    .then(r => r.json()).then(res => {
+      if (!res.found) throw new Error('Submission not found.');
+      return fetch(`${APPS_SCRIPT_URL}?action=listMySubmissions&code=${encodeURIComponent(currentAccessCode)}`).then(r => r.json()).then(list => showMySubmission(res, list.submissions || []));
+    }).catch(err => alert(err.message || 'Could not open this submission.'));
+}
+
+function startNewSubmission(){
+  const previous = Object.assign({}, meta);
+  resetSessionState();
+  meta = previous;
+  document.getElementById('mySubmissionCard').classList.add('hidden');
+  document.getElementById('introCard').classList.remove('hidden');
+  document.getElementById('fInnovator').value = meta.innovator || '';
+  document.getElementById('fSolution').value = meta.solution || '';
+  document.getElementById('fRespondent').value = meta.respondent || '';
+  document.getElementById('fSolution').focus();
+  window.scrollTo(0,0);
 }
 
 function downloadMySubmissionPdf(){
@@ -1274,6 +1314,7 @@ function renderAdminActionHub(rows){
 }
 
 function startAssessment(){
+  if (!currentSubmissionId) currentSubmissionId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('sub_' + Date.now() + '_' + Math.random().toString(36).slice(2));
   meta.innovator = document.getElementById('fInnovator').value.trim();
   meta.solution = document.getElementById('fSolution').value.trim();
   meta.respondent = document.getElementById('fRespondent').value.trim();
@@ -1701,6 +1742,7 @@ function submitResponses(){
   }
   const payload = {
     code: currentAccessCode,
+    submissionId: currentSubmissionId,
     innovator: meta.innovator, solution: meta.solution, respondent: meta.respondent,
     date: new Date().toISOString(),
     finalRaiPct: ((cumulativeThrough(SRAIS_DATA.length-1,'rai')/RAI_GRAND_MAX)*100).toFixed(1),
